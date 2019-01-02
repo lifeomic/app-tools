@@ -6,6 +6,7 @@
   "scripts": {
     "prelint": "yarn",
     "lint": "tslint -p .",
+    "prebuild": "yarn lint",
     "build": "tsc",
     "pretest": "yarn lint",
     "test": "jest --coverage"
