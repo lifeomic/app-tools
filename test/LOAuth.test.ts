@@ -1,11 +1,11 @@
 const queryString = require('query-string');
 const ClientOAuth2 = require('client-oauth2');
-const globals = require('../globals');
-import LOAuth from '../LOAuth';
+const globals = require('../src/globals');
+import LOAuth from '../src/LOAuth';
 
 jest.mock('client-oauth2', () => jest.fn().mockImplementation(() => clientOAuth2));
 
-jest.mock('../globals', () => ({
+jest.mock('../src/globals', () => ({
   window: {
     location: {
       href: 'https://unit-test?client_id=foo&authorization_code=bar',
