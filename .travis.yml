@@ -16,6 +16,7 @@ deploy:
     tags: true
     repo: lifeomic/app-tools
     node: '8'
+    branch: master
 
 after_success: yarn coverage
 
