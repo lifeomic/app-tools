@@ -18,8 +18,6 @@ deploy:
     node: '8'
     branch: master
 
-after_success: yarn coverage
-
 notifications:
   email:
     on_success: never
