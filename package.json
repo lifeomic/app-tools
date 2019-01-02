@@ -1,0 +1,36 @@
+{
+  "name": "@lifeomic/app-tools",
+  "version": "0.1.0",
+  "description": "Common utilities for PHC app development",
+  "main": "dist/index.js",
+  "scripts": {
+    "prelint": "yarn",
+    "lint": "tslint -p .",
+    "build": "tsc",
+    "pretest": "yarn lint",
+    "test": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lifeomic/app-tools.git"
+  },
+  "homepage": "https://github.com/lifeomic/app-tools#readme",
+  "author": "LifeOmic <development@lifeomic.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lifeomic/app-tools/issues"
+  },
+  "dependencies": {
+    "client-oauth2": "^4.2.3",
+    "lodash": "^4.17.11",
+    "query-string": "^6.2.0"
+  },
+  "devDependencies": {
+    "@lifeomic/typescript-tools": "^3.1.0",
+    "@types/jest": "^23.3.10",
+    "jest": "^23.6.0",
+    "ts-jest": "^23.10.5",
+    "tslint": "^5.12.0",
+    "typescript": "^3.2.2"
+  }
+}
