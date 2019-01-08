@@ -1,11 +1,12 @@
 {
   "name": "@lifeomic/app-tools",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Common utilities for PHC app development",
   "main": "dist/index.js",
   "scripts": {
     "prelint": "yarn",
     "lint": "tslint -p .",
+    "prebuild": "yarn lint",
     "build": "tsc",
     "pretest": "yarn lint",
     "test": "jest --coverage"
