@@ -45,7 +45,6 @@ beforeEach(() => {
   clientOAuth2.code.getToken.mockResolvedValue(mockToken);
   clientOAuth2.code.getUri.mockResolvedValue('http://integ-test/oauth-uri');
   clientOAuth2.createToken.mockResolvedValue(mockToken);
-  Object.assign(global, );
   tokenResponseJson = {
     access_token: 'access_token',
     expires_in: 3600,
