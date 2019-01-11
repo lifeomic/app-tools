@@ -1,5 +1,8 @@
 # LifeOmic App Tools
 
+[![Build
+Status](https://travis-ci.org/lifeomic/app-tools.svg?branch=master)](https://travis-ci.org/lifeomic/app-tools)
+
 Provides a set of utilities for developing custom web apps against the LifeOmic PHC API.
 
 ## Installation
