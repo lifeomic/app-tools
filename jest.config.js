@@ -8,6 +8,7 @@ module.exports = {
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   clearMocks: true,
+  collectCoverage: true,
   coverageThreshold: {
     global: {
       branches: 80,
