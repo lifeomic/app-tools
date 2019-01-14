@@ -5,7 +5,7 @@ node_js:
 - '10'
 
 script:
-  - yarn build
+- yarn build
 
 deploy:
 - provider: npm
