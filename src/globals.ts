@@ -1,3 +1,3 @@
-module.exports = {
-  window
-};
+const win = window;
+
+export { win as window };

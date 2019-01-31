@@ -42,3 +42,50 @@ appAuth.startAutomaticTokenRefresh().then(() => {
   console.log(response);
 });
 ```
+
+### Token Storage
+
+By default `LOAuth` will store the token in local storage and hydrate any existing session from there. To overwrite the storage location you can pass a storage object in options along with a custom storage key.
+
+```ts
+import { LOAuth } from '@lifeomic/app-tools';
+
+const appAuth = new LOAuth({
+  ...oauthConfig,
+  storageKey: 'my-super-awesome-key',
+  storage: {
+    getItem(key: string) {
+      return sessionStorage.getItem(key);
+    },
+    setItem(key: string, value: string) {
+      return sessionStorage.setItem(key, value);
+    },
+    removeItem(key: string) {
+      return sessionStorage.removeItem(key)
+    }
+  }
+});
+
+// or simply
+const appAuth = new LOAuth({
+  ...oauthConfig,
+  storageKey: 'my-super-awesome-key',
+  storage: sessionStorage,
+});
+```
+
+To opt-out of storing the token, you can pass in noop functions for storage
+
+```ts
+const noop = () => null;
+
+const appAuth = new LOAuth({
+  ...oauthConfig,
+  storageKey: 'my-super-awesome-key',
+  storage: {
+    getItem: noop,
+    setItem: noop,
+    removeItem: noop
+  }
+});
+```
