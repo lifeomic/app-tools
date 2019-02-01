@@ -1,10 +1,11 @@
 import * as ClientOAuth2 from 'client-oauth2';
 const queryString = require('query-string');
-const { window } = require('./globals');
+import { window } from './globals';
 
 // Defaults:
 const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
+const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
 const LO_QUERY_STRING_PARAMS = [
   'account',
@@ -19,7 +20,7 @@ class LOAuth {
   private refreshInterval: number;
   appState: any;
 
-  constructor (options: LOAuth.Config) {
+  constructor(options: LOAuth.Config) {
     const required = [
       'clientId',
       'authorizationUri',
@@ -65,6 +66,8 @@ class LOAuth {
       state: encodedState
     });
     this.clientOptions = options;
+    this.clientOptions.storageKey = options.storageKey || AUTH_STORAGE_KEY;
+    this.clientOptions.storage = options.storage || window.localStorage;
   }
 
   _getAppUri () {
@@ -92,7 +95,39 @@ class LOAuth {
     }
   }
 
-  async refreshAccessToken (options: LOAuth.RefreshOptions) {
+  private _storeTokenData(token: LOAuth.Token) {
+    const { storage, storageKey } = this.clientOptions;
+    const data: LOAuth.TokenData = {
+      ...token.data,
+      expires: token.expires.getTime()
+    };
+    storage.setItem(storageKey, JSON.stringify(data));
+  }
+
+  private _getTokenDataFromStorage(): LOAuth.TokenData {
+    const { storage, storageKey } = this.clientOptions;
+    const value = storage.getItem(storageKey);
+
+    return value ? JSON.parse(value) : null;
+  }
+
+  private _removeTokenDataFromStorage() {
+    const { storage, storageKey } = this.clientOptions;
+    storage.removeItem(storageKey);
+  }
+
+  private _isTokenExpiring(options: LOAuth.RefreshOptions = {}) {
+    const refreshWindow =
+      options.refreshWindow !== undefined
+        ? options.refreshWindow
+        : AUTH_REFRESH_WINDOW;
+    return (
+      Math.floor((this.token.expires.getTime() - Date.now()) / 1000 / 60) <=
+      refreshWindow
+    );
+  }
+
+  public async refreshAccessToken(options: LOAuth.RefreshOptions = {}) {
     options = Object.assign({}, this.clientOptions, options);
     try {
       if (!this.token) {
@@ -103,9 +138,14 @@ class LOAuth {
         );
 
         this._decodeAppState();
+        this._storeTokenData(this.token);
 
         // Remove client_id / code from URL
-        window.history.replaceState({}, window.document.title, this._getAppUri());
+        window.history.replaceState(
+          {},
+          window.document.title,
+          this._getAppUri()
+        );
       } else if (options.expiringRefresh) {
         // Token refresh
         const response = await window.fetch(this.clientOptions.accessTokenUri, {
@@ -121,17 +161,32 @@ class LOAuth {
           })
         });
         const responseJson = await response.json();
-        this.token = await this.client.createToken(Object.assign({
-          refresh_token: this.token.refreshToken
-        }, responseJson));
+        this.token = await this.client.createToken(
+          Object.assign(
+            {
+              refresh_token: this.token.refreshToken
+            },
+            responseJson
+          )
+        );
+        this._storeTokenData(this.token);
       }
     } catch (error) {
-      console.warn(error, 'Error refreshing access token - redirecting');
-      window.location.href = await this.client.code.getUri();
+      const tokenFromStorage = this._getTokenDataFromStorage();
+      if (tokenFromStorage) {
+        this.token = await this.client.createToken(tokenFromStorage as any);
+        this.token.expiresIn(new Date(tokenFromStorage.expires));
+        if (this._isTokenExpiring(options)) {
+          await this.refreshAccessToken({ expiringRefresh: true });
+        }
+      } else {
+        console.warn(error, 'Error refreshing access token - redirecting');
+        window.location.href = await this.client.code.getUri();
+      }
     }
   }
 
-  async startAutomaticTokenRefresh (options: LOAuth.RefreshOptions) {
+  public async startAutomaticTokenRefresh(options: LOAuth.RefreshOptions) {
     if (!this.token) {
       // Initiate initial auth token exchange
       await this.refreshAccessToken(options);
@@ -141,9 +196,7 @@ class LOAuth {
     if (!this.refreshInterval) {
       this.refreshInterval = window.setInterval(async () => {
         try {
-          const refreshWindow = options.refreshWindow !== undefined ? options.refreshWindow : AUTH_REFRESH_WINDOW;
-          const expiring = Math.floor((this.token.expires - Date.now()) / 1000 / 60) <= refreshWindow;
-          if (expiring) {
+          if (this._isTokenExpiring(options)) {
             await this.refreshAccessToken({ expiringRefresh: true });
           }
         } catch (error) {
@@ -153,21 +206,28 @@ class LOAuth {
     }
   }
 
-  async stopAutomaticTokenRefresh () {
+  public async stopAutomaticTokenRefresh() {
     if (this.refreshInterval) {
       window.clearInterval(this.refreshInterval);
     }
   }
 
-  async sign (options: LOAuth.SignOptions) {
+  public getAccessToken() {
+    return this.token && this.token.accessToken;
+  }
+
+  public async sign(options: LOAuth.SignOptions) {
     if (!this.token) {
-      throw new Error('Cannot sign request before receiving access token - wait for refreshAccessToken');
+      throw new Error(
+        'Cannot sign request before receiving access token - wait for refreshAccessToken'
+      );
     }
     return this.token.sign(options);
   }
 
-  async logout () {
+  public async logout() {
     await this.stopAutomaticTokenRefresh();
+    this._removeTokenDataFromStorage();
     const qs = queryString.stringify({
       client_id: this.clientOptions.clientId,
       logout_uri: this.clientOptions.logoutRedirectUri
@@ -178,29 +238,47 @@ class LOAuth {
 
 declare namespace LOAuth {
   export interface Config {
-    clientId: string,
-    authorizationUri: string,
-    accessTokenUri: string,
-    redirectUri: string,
-    logoutUri: string,
-    logoutRedirectUri: string,
-    scopes: string[],
+    clientId: string;
+    authorizationUri: string;
+    accessTokenUri: string;
+    redirectUri: string;
+    logoutUri: string;
+    logoutRedirectUri: string;
+    scopes: string[];
+    storageKey?: string;
+    storage?: Storage;
 
     // An object containing application state
-    appState?: any
+    appState?: any;
   }
 
   export interface Token extends ClientOAuth2.Token {
-    expires?: number
+    expires?: Date;
+    data: any;
   }
 
   export interface RefreshOptions extends ClientOAuth2.Options {
-    expiringRefresh?: boolean,
-    refreshWindow?: number,
-    interval?: number
+    expiringRefresh?: boolean;
+    refreshWindow?: number;
+    interval?: number;
   }
 
   export interface SignOptions extends ClientOAuth2.RequestObject {}
+
+  export interface Storage {
+    getItem(key: string): string;
+    setItem(key: string, value: string): void;
+    removeItem(key: string): void;
+  }
+
+  export interface TokenData {
+    access_token: string;
+    expires_in: number;
+    id_token: string;
+    refresh_token: string;
+    token_type: string;
+    expires?: number;
+  }
 }
 
 export default LOAuth;
