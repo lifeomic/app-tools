@@ -38,21 +38,8 @@ class LOAuth {
     }
 
     this._decodeAppState();
-    const queryParameters = new URLSearchParams(window.location.search);
-    const initialState = {};
-    LO_QUERY_STRING_PARAMS.forEach(param => {
-      if (queryParameters.get(param)) {
-        initialState[param] = queryParameters.get(param);
-      }
-    });
     const state = {
-      // If initial load of app, pull allowed query string parameters
-      ...initialState,
-
-      // If authenticated, and we just decoded state above
       ...this.appState,
-
-      // Allowing for overrides
       ...options.appState
     };
     const encodedState = encodeURIComponent(JSON.stringify(state));
@@ -89,8 +76,18 @@ class LOAuth {
   _decodeAppState () {
     const queryParameters = new URLSearchParams(window.location.search);
     try {
+      this.appState = {};
+
+      // If initial load, read from queryStrings
+      LO_QUERY_STRING_PARAMS.forEach(param => {
+        if (queryParameters.get(param)) {
+          this.appState[param] = queryParameters.get(param);
+        }
+      });
+
+      // If after login flow, decode from state
       const decodedState = decodeURIComponent(queryParameters.get('state') || '{}');
-      this.appState = JSON.parse(decodedState);
+      Object.assign(this.appState, JSON.parse(decodedState));
     } catch (error) {
       console.warn(error, 'Error occurred parsing state query string parameter');
     }
