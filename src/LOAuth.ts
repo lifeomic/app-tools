@@ -6,11 +6,18 @@ const { window } = require('./globals');
 const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
 
+const LO_QUERY_STRING_PARAMS = [
+  'account',
+  'projectId',
+  'cohortId'
+];
+
 class LOAuth {
   private client: ClientOAuth2;
   private clientOptions: LOAuth.Config;
   private token: LOAuth.Token;
   private refreshInterval: number;
+  appState: any;
 
   constructor (options: LOAuth.Config) {
     const required = [
@@ -29,23 +36,60 @@ class LOAuth {
       }
     }
 
+    this._decodeAppState();
+    const queryParameters = new URLSearchParams(window.location.search);
+    const initialState = {};
+    LO_QUERY_STRING_PARAMS.forEach(param => {
+      if (queryParameters.get(param)) {
+        initialState[param] = queryParameters.get(param);
+      }
+    });
+    const state = {
+      // If initial load of app, pull allowed query string parameters
+      ...initialState,
+
+      // If authenticated, and we just decoded state above
+      ...this.appState,
+
+      // Allowing for overrides
+      ...options.appState
+    };
+    const encodedState = encodeURIComponent(JSON.stringify(state));
+
     this.client = new ClientOAuth2({
       clientId: options.clientId,
       authorizationUri: options.authorizationUri,
       accessTokenUri: options.accessTokenUri,
       redirectUri: options.redirectUri,
-      scopes: options.scopes
+      scopes: options.scopes,
+      state: encodedState
     });
     this.clientOptions = options;
   }
 
-  _getOriginUri () {
-    return (
-      window.location.protocol +
-      '//' +
-      window.location.hostname +
-      (window.location.port ? ':' + window.location.port : '')
-    );
+  _getAppUri () {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    const port = window.location.port ? ':' + window.location.port : '';
+    const queryParameters = new URLSearchParams();
+    LO_QUERY_STRING_PARAMS.forEach(param => {
+      if (this.appState[param]) {
+        queryParameters.set(param, this.appState[param]);
+      }
+    });
+    let queryString = queryParameters.toString();
+    queryString = queryString.length ? `?${queryString}` : '';
+    return `${protocol}//${hostname}${port}${queryString}`;
+  }
+
+  _decodeAppState () {
+    const queryParameters = new URLSearchParams(window.location.search);
+    try {
+      const decodedState = decodeURIComponent(queryParameters.get('state') || '{}');
+      this.appState = JSON.parse(decodedState);
+    } catch (error) {
+      console.warn(error, 'Error occurred parsing state query string parameter');
+    }
   }
 
   async refreshAccessToken (options: LOAuth.RefreshOptions) {
@@ -57,8 +101,11 @@ class LOAuth {
           window.location.href,
           options
         );
+
+        this._decodeAppState();
+
         // Remove client_id / code from URL
-        window.history.replaceState({}, window.document.title, this._getOriginUri());
+        window.history.replaceState({}, window.document.title, this._getAppUri());
       } else if (options.expiringRefresh) {
         // Token refresh
         const response = await window.fetch(this.clientOptions.accessTokenUri, {
@@ -79,7 +126,7 @@ class LOAuth {
         }, responseJson));
       }
     } catch (error) {
-      console.warn(`Error refreshing access token - redirecting: ${error}`);
+      console.warn(error, 'Error refreshing access token - redirecting');
       window.location.href = await this.client.code.getUri();
     }
   }
@@ -100,7 +147,7 @@ class LOAuth {
             await this.refreshAccessToken({ expiringRefresh: true });
           }
         } catch (error) {
-          console.warn('Error in automatic token refresh', error);
+          console.warn(error, 'Error in automatic token refresh');
         }
       }, options.interval || AUTH_TOKEN_INTERVAL);
     }
@@ -137,7 +184,10 @@ declare namespace LOAuth {
     redirectUri: string,
     logoutUri: string,
     logoutRedirectUri: string,
-    scopes: string[]
+    scopes: string[],
+
+    // An object containing application state
+    appState?: any
   }
 
   export interface Token extends ClientOAuth2.Token {

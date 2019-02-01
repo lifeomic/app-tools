@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "client-oauth2": "^4.2.3",
-    "lodash": "^4.17.11",
     "query-string": "^6.2.0"
   },
   "devDependencies": {
