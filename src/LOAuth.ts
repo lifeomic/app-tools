@@ -71,6 +71,7 @@ class LOAuth {
   }
 
   _getAppUri () {
+    this._decodeAppState();
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
     const port = window.location.port ? ':' + window.location.port : '';
@@ -137,7 +138,6 @@ class LOAuth {
           options
         );
 
-        this._decodeAppState();
         this._storeTokenData(this.token);
 
         // Remove client_id / code from URL
