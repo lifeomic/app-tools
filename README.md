@@ -19,10 +19,10 @@ import { LOAuth } from '@lifeomic/app-tools';
 // Setup
 const appAuth = new LOAuth({
   clientId: '<clientId>',
-  authorizationUri: 'https://lifeomic-prod.auth.us-east-1.amazoncognito.com/oauth2/authorize',
-  accessTokenUri: 'https://lifeomic-prod.auth.us-east-1.amazoncognito.com/oauth2/token',
+  authorizationUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/authorize',
+  accessTokenUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/token',
   redirectUri: 'http://localhost:3000/callback',
-  logoutUri: 'https://lifeomic-prod.auth.us-east-1.amazoncognito.com/logout',
+  logoutUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/logout',
   logoutRedirectUri: 'http://localhost:3000/logout',
   scopes: ['openid']
 });
@@ -35,7 +35,7 @@ appAuth.startAutomaticTokenRefresh().then(() => {
   // Sign adds access_token etc. to your request options
   const request = await appAuth.sign({
     method: 'GET',
-    url: `https://fhir.prod.lifeomic.com/${account}/dstu3/${resourceType}?_tag=http%3A%2F%2Flifeomic.com%2Ffhir%2Fdataset%${project}&pageSize=5`
+    url: `https://fhir.us.lifeomic.com/${account}/dstu3/${resourceType}?_tag=http%3A%2F%2Flifeomic.com%2Ffhir%2Fdataset%${project}&pageSize=5`
   });
 
   const response = await fetch(request.url, request);
