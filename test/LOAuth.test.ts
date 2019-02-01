@@ -3,14 +3,16 @@ const ClientOAuth2 = require('client-oauth2');
 const globals = require('../src/globals');
 import LOAuth from '../src/LOAuth';
 
-jest.mock('client-oauth2', () =>
-  jest.fn().mockImplementation(() => clientOAuth2)
-);
+jest.mock('client-oauth2', () => jest.fn().mockImplementation((...params) => {
+  ClientOAuth2Ctor(...params)
+  return clientOAuth2;
+}));
 
 jest.mock('../src/globals', () => ({
   window: {
     location: {
-      href: 'https://unit-test?client_id=foo&authorization_code=bar',
+      href: 'set-in-before-each!',
+      search: 'set-in-before-each!',
       protocol: 'https:',
       hostname: 'unit-test'
     },
@@ -40,6 +42,7 @@ const clientOAuth2 = {
   },
   createToken: jest.fn()
 };
+const ClientOAuth2Ctor = jest.fn();
 
 beforeEach(() => {
   tokenResponseJson = {
@@ -74,7 +77,10 @@ beforeEach(() => {
     scopes: ['openid']
   };
 
-  auth = new LOAuth(ctorParams);
+  Object.assign(globals.window.location, {
+    href: 'https://unit-test?client_id=foo&authorization_code=bar',
+    search: '?client_id=foo&authorization_code=bar'
+  });
 });
 
 const ctorRequired = [
@@ -95,219 +101,271 @@ for (const param of ctorRequired) {
   });
 }
 
-test('refreshAccessToken attempts to exchange authorization code for access token', async () => {
-  await auth.refreshAccessToken();
-
-  const client = ClientOAuth2.mock.results[0].value;
-  expect(client.code.getToken.mock.calls.length).toBe(1);
-  expect(client.code.getToken.mock.calls[0][0]).toBe(
-    'https://unit-test?client_id=foo&authorization_code=bar'
-  );
-  expect(globals.window.history.replaceState.mock.calls.length).toBe(1);
-  expect(globals.window.history.replaceState.mock.calls[0][2]).toBe(
-    'https://unit-test'
-  );
-  expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
+test('ctor captures LO query string parameters for application state', async () => {
+  globals.window.location.href = 'https://unit-test?account=myaccount&projectId=myproject';
+  globals.window.location.search = '?account=myaccount&projectId=myproject';
+  const expectedState = encodeURIComponent(JSON.stringify({ account: 'myaccount', projectId: 'myproject' }));
+  auth = new LOAuth(ctorParams);
+  expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
 
-test('refreshAccessToken does nothing if token already captured', async () => {
-  await auth.refreshAccessToken(); // token captured
-  await auth.refreshAccessToken(); // no-op
-
-  expect(
-    ClientOAuth2.mock.results[0].value.code.getToken.mock.calls.length
-  ).toBe(1);
-  expect(globals.window.fetch.mock.calls.length).toBe(0);
+test('ctor captures application state from OAuth state param', async () => {
+  ctorParams.appState = {
+    account: 'myaccount', // This will override queryString params (account lock down for app)
+    myField: 'myValue'
+  };
+  const expectedState = encodeURIComponent(JSON.stringify(ctorParams.appState));
+  globals.window.location.href = `https://unit-test?account=otheraccount`;
+  auth = new LOAuth(ctorParams);
+  expect(ClientOAuth2Ctor.mock.calls.length).toBe(1);
+  expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
 
-test('refreshAccessToken performs refresh_token if called with expiringRefresh', async () => {
-  await auth.refreshAccessToken(); // token captured
-  await auth.refreshAccessToken({ expiringRefresh: true });
-
-  expect(globals.window.fetch.mock.calls.length).toBe(1);
-  expect(globals.window.fetch.mock.calls[0][0]).toBe(ctorParams.accessTokenUri);
-  expect(globals.window.fetch.mock.calls[0][1].body).toEqual(
-    queryString.stringify({
-      client_id: ctorParams.clientId,
-      grant_type: 'refresh_token',
-      refresh_token: mockToken.refreshToken,
-      redirect_uri: ctorParams.redirectUri
-    })
-  );
-  expect(ClientOAuth2.mock.results[0].value.createToken.mock.calls.length).toBe(
-    1
-  );
-  expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
+test('ctor passes empty state when appropriate', async () => {
+  delete ctorParams.appState;
+  const expectedState = encodeURIComponent(JSON.stringify({}));
+  globals.window.location.href = 'https://unit-test';
+  globals.window.location.search = '';
+  auth = new LOAuth(ctorParams);
+  expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
 
-test('refreshAccessToken redirects to login upon error if no token is in storage', async () => {
-  globals.window.location.href = 'https://unit-test'; // No client_id etc.
-  clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
-  await auth.refreshAccessToken();
-
-  const loginUri = await ClientOAuth2.mock.results[0].value.code.getUri();
-
-  expect(globals.window.location.href).toBe(loginUri);
-});
-
-test('refreshAccessToken uses token from storage upon error', async () => {
-  const appUrl = 'https://unit-test';
-  globals.window.location.href = appUrl;
-  clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
-  clientOAuth2.createToken.mockResolvedValue({
-    ...mockToken,
-    expires: {
-      getTime: () => Date.now() * 2
-    }
+describe('with auth successfully created', () => {
+  beforeEach(() => {
+    auth = new LOAuth(ctorParams);
   });
-  globals.window.localStorage.getItem.mockReturnValueOnce(
-    JSON.stringify({
-      ...tokenResponseJson,
-      expires: 100
-    })
-  );
-  await auth.refreshAccessToken();
 
-  expect(globals.window.location.href).toBe(appUrl);
-  expect(globals.window.fetch).not.toBeCalled();
-});
+  test('refreshAccessToken attempts to exchange authorization code for access token', async () => {
+    await auth.refreshAccessToken();
 
-test('refreshAccessToken refresh token from storage upon error if it is expired', async () => {
-  globals.window.location.href = 'https://unit-test'; // No client_id etc.
-  clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
-  globals.window.localStorage.getItem.mockReturnValueOnce(
-    JSON.stringify({
-      ...tokenResponseJson,
-      expires: 0
-    })
-  );
+    const client = ClientOAuth2.mock.results[0].value;
+    expect(client.code.getToken.mock.calls.length).toBe(1);
+    expect(client.code.getToken.mock.calls[0][0]).toBe(
+      'https://unit-test?client_id=foo&authorization_code=bar'
+    );
+    expect(globals.window.history.replaceState.mock.calls.length).toBe(1);
+    expect(globals.window.history.replaceState.mock.calls[0][2]).toBe(
+      'https://unit-test'
+    );
+    expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
+  });
 
-  await auth.refreshAccessToken();
-  expect(globals.window.fetch).toBeCalled();
-});
+  test('refreshAccessToken decodes and exposes appState', async () => {
+    const appState = { account: 'myaccount', projectId: 'myproject', customAppField: 'val' };
+    const encodedState = encodeURIComponent(JSON.stringify(appState));
+    globals.window.location.search = `?client_id=foo&authorization_code=bar&state=${encodedState}`;
+    globals.window.location.href = `https://unit-test${globals.window.location.search}`;
+    await auth.refreshAccessToken();
 
-test('LOAuth uses storage passed to it', async () => {
-  const mockStorageKey = 'mock-storage-key';
-  const mockStorage: LOAuth.Storage = {
-    getItem: jest.fn(() => {
+    expect(auth.appState.account).toBe('myaccount');
+    expect(auth.appState.projectId).toBe('myproject');
+    expect(auth.appState.customAppField).toBe('val');
+  });
+
+  test('refreshAccessToken does nothing if token already captured', async () => {
+    await auth.refreshAccessToken(); // token captured
+    await auth.refreshAccessToken(); // no-op
+
+    expect(
+      ClientOAuth2.mock.results[0].value.code.getToken.mock.calls.length
+    ).toBe(1);
+    expect(globals.window.fetch.mock.calls.length).toBe(0);
+  });
+
+  test('refreshAccessToken performs refresh_token if called with expiringRefresh', async () => {
+    await auth.refreshAccessToken(); // token captured
+    await auth.refreshAccessToken({ expiringRefresh: true });
+
+    expect(globals.window.fetch.mock.calls.length).toBe(1);
+    expect(globals.window.fetch.mock.calls[0][0]).toBe(ctorParams.accessTokenUri);
+    expect(globals.window.fetch.mock.calls[0][1].body).toEqual(
+      queryString.stringify({
+        client_id: ctorParams.clientId,
+        grant_type: 'refresh_token',
+        refresh_token: mockToken.refreshToken,
+        redirect_uri: ctorParams.redirectUri
+      })
+    );
+    expect(ClientOAuth2.mock.results[0].value.createToken.mock.calls.length).toBe(
+      1
+    );
+    expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
+  });
+
+  test('refreshAccessToken redirects to login upon error if no token is in storage', async () => {
+    globals.window.location.href = 'https://unit-test'; // No client_id etc.
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+    await auth.refreshAccessToken();
+
+    const loginUri = await ClientOAuth2.mock.results[0].value.code.getUri();
+
+    expect(globals.window.location.href).toBe(loginUri);
+  });
+
+  test('refreshAccessToken uses token from storage upon error', async () => {
+    const appUrl = 'https://unit-test';
+    globals.window.location.href = appUrl;
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+    clientOAuth2.createToken.mockResolvedValue({
+      ...mockToken,
+      expires: {
+        getTime: () => Date.now() * 2
+      }
+    });
+    globals.window.localStorage.getItem.mockReturnValueOnce(
+      JSON.stringify({
+        ...tokenResponseJson,
+        expires: 100
+      })
+    );
+    await auth.refreshAccessToken();
+
+    expect(globals.window.location.href).toBe(appUrl);
+    expect(globals.window.fetch).not.toBeCalled();
+  });
+
+  test('refreshAccessToken refresh token from storage upon error if it is expired', async () => {
+    globals.window.location.href = 'https://unit-test'; // No client_id etc.
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+    globals.window.localStorage.getItem.mockReturnValueOnce(
       JSON.stringify({
         ...tokenResponseJson,
         expires: 0
-      });
-    }),
-    setItem: jest.fn(),
-    removeItem: jest.fn()
-  };
-  const mockAuth = new LOAuth({
-    ...ctorParams,
-    storageKey: mockStorageKey,
-    storage: mockStorage
+      })
+    );
+
+    await auth.refreshAccessToken();
+    expect(globals.window.fetch).toBeCalled();
   });
 
-  globals.window.location.href = 'https://unit-test'; // No client_id etc.
-  clientOAuth2.code.getToken.mockRejectedValueOnce(new Error('unit test'));
-
-  await mockAuth.refreshAccessToken();
-  await mockAuth.refreshAccessToken({ expiringRefresh: true });
-  await mockAuth.logout();
-  expect(mockStorage.setItem).toBeCalledWith(
-    mockStorageKey,
-    expect.any(String)
-  );
-  expect(mockStorage.getItem).toBeCalledWith(mockStorageKey);
-  expect(mockStorage.removeItem).toBeCalledWith(mockStorageKey);
-});
-
-const startAutomaticTokenRefreshConfigs = [
-  {
-    interval: 5,
-    refreshWindow: 5 * 1000,
-    override: true,
-    testTitle:
-      'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with overrides'
-  },
-  {
-    // Defaults
-    interval: 30 * 1000,
-    refreshWindow: 5,
-    testTitle:
-      'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with defaults'
-  }
-];
-for (const config of startAutomaticTokenRefreshConfigs) {
-  test(config.testTitle, async () => {
-    auth.refreshAccessToken = jest.fn();
-    const options = config.override
-      ? {
-          interval: config.interval,
-          refreshWindow: config.refreshWindow
-        }
-      : {};
-    await auth.startAutomaticTokenRefresh(options);
-    mockToken.expires = new Date(
-      Date.now() + (config.refreshWindow + 2) * 60 * 1000
-    );
-    auth.token = mockToken;
-
-    expect(auth.refreshAccessToken.mock.calls.length).toBe(1); // Initial retrieval of token from URL
-    expect(globals.window.setInterval.mock.calls.length).toBe(1);
-    expect(globals.window.setInterval.mock.calls[0][1]).toBe(config.interval);
-    // Mock setInterval func invocation
-    globals.window.setInterval.mock.calls[0][0].bind(auth)();
-    expect(auth.refreshAccessToken.mock.calls.length).toBe(1); // Hasn't expired yet
-
-    mockToken.expires = new Date(
-      Date.now() + (config.refreshWindow - 1) * 60 * 1000
-    );
-    globals.window.setInterval.mock.calls[0][0].bind(auth)();
-    expect(auth.refreshAccessToken.mock.calls.length).toBe(2); // Expired and called
-    expect(auth.refreshAccessToken.mock.calls[1][0]).toEqual({
-      expiringRefresh: true
+  test('LOAuth uses storage passed to it', async () => {
+    const mockStorageKey = 'mock-storage-key';
+    const mockStorage: LOAuth.Storage = {
+      getItem: jest.fn(() => {
+        JSON.stringify({
+          ...tokenResponseJson,
+          expires: 0
+        });
+      }),
+      setItem: jest.fn(),
+      removeItem: jest.fn()
+    };
+    const mockAuth = new LOAuth({
+      ...ctorParams,
+      storageKey: mockStorageKey,
+      storage: mockStorage
     });
+
+    globals.window.location.href = 'https://unit-test'; // No client_id etc.
+    clientOAuth2.code.getToken.mockRejectedValueOnce(new Error('unit test'));
+
+    await mockAuth.refreshAccessToken();
+    await mockAuth.refreshAccessToken({ expiringRefresh: true });
+    await mockAuth.logout();
+    expect(mockStorage.setItem).toBeCalledWith(
+      mockStorageKey,
+      expect.any(String)
+    );
+    expect(mockStorage.getItem).toBeCalledWith(mockStorageKey);
+    expect(mockStorage.removeItem).toBeCalledWith(mockStorageKey);
   });
-}
 
-test('stopAutomaticTokenRefresh calls clearInterval if refreshInterval is set', async () => {
-  await auth.stopAutomaticTokenRefresh();
-  expect(globals.window.clearInterval.mock.calls.length).toBe(0);
+  test('refreshAccessToken does nothing if token already captured', async () => {
+    await auth.refreshAccessToken(); // token captured
+    await auth.refreshAccessToken(); // no-op
 
-  auth.refreshInterval = () => {};
-
-  await auth.stopAutomaticTokenRefresh();
-  expect(globals.window.clearInterval.mock.calls.length).toBe(1);
-  expect(globals.window.clearInterval.mock.calls[0][0]).toBe(
-    auth.refreshInterval
-  );
-});
-
-test('sign uses client-oauth2 sign if token present', async () => {
-  auth.token = mockToken;
-  const requestOptions = {
-    method: 'GET',
-    url: 'https://integ-test/api'
-  };
-  await auth.sign(requestOptions);
-  expect(mockToken.sign.mock.calls.length).toBe(1);
-  expect(mockToken.sign.mock.calls[0][0]).toEqual(requestOptions);
-});
-
-test('sign throws if not token captured', async () => {
-  auth.token = null;
-  const requestOptions = {
-    method: 'GET',
-    url: 'https://integ-test/api'
-  };
-  expect(auth.sign(requestOptions)).rejects.toThrow();
-});
-
-test('logout redirects to the logoutUri', async () => {
-  auth.stopAutomaticTokenRefresh = jest.fn();
-  await auth.logout();
-
-  expect(auth.stopAutomaticTokenRefresh.mock.calls.length).toBe(1);
-  const qs = queryString.stringify({
-    client_id: ctorParams.clientId,
-    logout_uri: ctorParams.logoutRedirectUri
+    expect(ClientOAuth2.mock.results[0].value.code.getToken.mock.calls.length).toBe(1);
+    expect(globals.window.fetch.mock.calls.length).toBe(0);
   });
-  expect(globals.window.location.href).toBe(`${ctorParams.logoutUri}?${qs}`);
+
+  test('refreshAccessToken redirects to login upon error', async () => {
+    globals.window.location.href = 'https://unit-test'; // No client_id etc.
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+    await auth.refreshAccessToken();
+
+    const loginUri = await ClientOAuth2.mock.results[0].value.code.getUri();
+    expect(globals.window.location.href).toBe(loginUri);
+  });
+
+  const startAutomaticTokenRefreshConfigs = [
+    {
+      interval: 5,
+      refreshWindow: 5 * 1000,
+      override: true,
+      testTitle: 'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with overrides'
+    },
+    {
+      // Defaults
+      interval: 30 * 1000,
+      refreshWindow: 5,
+      testTitle: 'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with defaults'
+    }
+  ];
+  for (const config of startAutomaticTokenRefreshConfigs) {
+    test(config.testTitle, async () => {
+      auth.refreshAccessToken = jest.fn();
+      const options = config.override ? {
+        interval: config.interval,
+        refreshWindow: config.refreshWindow
+      } : {};
+      await auth.startAutomaticTokenRefresh(options);
+      mockToken.expires = new Date(Date.now() + ((config.refreshWindow + 2) * 60 * 1000));
+      auth.token = mockToken;
+
+      expect(auth.refreshAccessToken.mock.calls.length).toBe(1); // Initial retrieval of token from URL
+      expect(globals.window.setInterval.mock.calls.length).toBe(1);
+      expect(globals.window.setInterval.mock.calls[0][1]).toBe(config.interval);
+      // Mock setInterval func invocation
+      globals.window.setInterval.mock.calls[0][0].bind(auth)();
+      expect(auth.refreshAccessToken.mock.calls.length).toBe(1); // Hasn't expired yet
+
+      mockToken.expires = new Date(Date.now() + ((config.refreshWindow - 1) * 60 * 1000));
+      globals.window.setInterval.mock.calls[0][0].bind(auth)();
+      expect(auth.refreshAccessToken.mock.calls.length).toBe(2); // Expired and called
+      expect(auth.refreshAccessToken.mock.calls[1][0]).toEqual({ expiringRefresh: true });
+    });
+  }
+
+  test('stopAutomaticTokenRefresh calls clearInterval if refreshInterval is set', async () => {
+    await auth.stopAutomaticTokenRefresh();
+    expect(globals.window.clearInterval.mock.calls.length).toBe(0);
+
+    auth.refreshInterval = () => {};
+
+    await auth.stopAutomaticTokenRefresh();
+    expect(globals.window.clearInterval.mock.calls.length).toBe(1);
+    expect(globals.window.clearInterval.mock.calls[0][0]).toBe(auth.refreshInterval);
+  });
+
+  test('sign uses client-oauth2 sign if token present', async () => {
+    auth.token = mockToken;
+    const requestOptions = {
+      method: 'GET',
+      url: 'https://integ-test/api'
+    };
+    await auth.sign(requestOptions);
+    expect(mockToken.sign.mock.calls.length).toBe(1);
+    expect(mockToken.sign.mock.calls[0][0]).toEqual(requestOptions);
+  });
+
+  test('sign throws if not token captured', async () => {
+    auth.token = null;
+    const requestOptions = {
+      method: 'GET',
+      url: 'https://integ-test/api'
+    };
+    expect(auth.sign(requestOptions)).rejects.toThrow();
+  });
+
+  test('logout redirects to the logoutUri', async () => {
+    auth.stopAutomaticTokenRefresh = jest.fn()
+    await auth.logout();
+
+    expect(auth.stopAutomaticTokenRefresh.mock.calls.length).toBe(1);
+    const qs = queryString.stringify({
+      client_id: ctorParams.clientId,
+      logout_uri: ctorParams.logoutRedirectUri
+    });
+    expect(globals.window.location.href).toBe(`${ctorParams.logoutUri}?${qs}`);
+  });
 });

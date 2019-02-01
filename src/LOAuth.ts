@@ -7,11 +7,18 @@ const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
 const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
+const LO_QUERY_STRING_PARAMS = [
+  'account',
+  'projectId',
+  'cohortId'
+];
+
 class LOAuth {
   private client: ClientOAuth2;
   private clientOptions: LOAuth.Config;
   private token: LOAuth.Token;
   private refreshInterval: number;
+  appState: any;
 
   constructor(options: LOAuth.Config) {
     const required = [
@@ -30,25 +37,60 @@ class LOAuth {
       }
     }
 
+    this._decodeAppState();
+    const state = {
+      ...this.appState,
+      ...options.appState
+    };
+    const encodedState = encodeURIComponent(JSON.stringify(state));
+
     this.client = new ClientOAuth2({
       clientId: options.clientId,
       authorizationUri: options.authorizationUri,
       accessTokenUri: options.accessTokenUri,
       redirectUri: options.redirectUri,
-      scopes: options.scopes
+      scopes: options.scopes,
+      state: encodedState
     });
     this.clientOptions = options;
     this.clientOptions.storageKey = options.storageKey || AUTH_STORAGE_KEY;
     this.clientOptions.storage = options.storage || window.localStorage;
   }
 
-  private _getOriginUri() {
-    return (
-      window.location.protocol +
-      '//' +
-      window.location.hostname +
-      (window.location.port ? ':' + window.location.port : '')
-    );
+  _getAppUri () {
+    this._decodeAppState();
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    const port = window.location.port ? ':' + window.location.port : '';
+    const queryParameters = new URLSearchParams();
+    LO_QUERY_STRING_PARAMS.forEach(param => {
+      if (this.appState[param]) {
+        queryParameters.set(param, this.appState[param]);
+      }
+    });
+    let queryString = queryParameters.toString();
+    queryString = queryString.length ? `?${queryString}` : '';
+    return `${protocol}//${hostname}${port}${queryString}`;
+  }
+
+  _decodeAppState () {
+    const queryParameters = new URLSearchParams(window.location.search);
+    try {
+      this.appState = {};
+
+      // If initial load, read from queryStrings
+      LO_QUERY_STRING_PARAMS.forEach(param => {
+        if (queryParameters.get(param)) {
+          this.appState[param] = queryParameters.get(param);
+        }
+      });
+
+      // If after login flow, decode from state
+      const decodedState = decodeURIComponent(queryParameters.get('state') || '{}');
+      Object.assign(this.appState, JSON.parse(decodedState));
+    } catch (error) {
+      console.warn(error, 'Error occurred parsing state query string parameter');
+    }
   }
 
   private _storeTokenData(token: LOAuth.Token) {
@@ -92,12 +134,14 @@ class LOAuth {
           window.location.href,
           options
         );
+
         this._storeTokenData(this.token);
+
         // Remove client_id / code from URL
         window.history.replaceState(
           {},
           window.document.title,
-          this._getOriginUri()
+          this._getAppUri()
         );
       } else if (options.expiringRefresh) {
         // Token refresh
@@ -133,6 +177,7 @@ class LOAuth {
           await this.refreshAccessToken({ expiringRefresh: true });
         }
       } else {
+        console.warn(error, 'Error refreshing access token - redirecting');
         window.location.href = await this.client.code.getUri();
       }
     }
@@ -152,7 +197,7 @@ class LOAuth {
             await this.refreshAccessToken({ expiringRefresh: true });
           }
         } catch (error) {
-          console.warn('Error in automatic token refresh', error);
+          console.warn(error, 'Error in automatic token refresh');
         }
       }, options.interval || AUTH_TOKEN_INTERVAL);
     }
@@ -199,6 +244,9 @@ declare namespace LOAuth {
     scopes: string[];
     storageKey?: string;
     storage?: Storage;
+
+    // An object containing application state
+    appState?: any;
   }
 
   export interface Token extends ClientOAuth2.Token {

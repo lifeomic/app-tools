@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`refreshAccessToken attempts to exchange authorization code for access token 1`] = `
+exports[`with auth successfully created refreshAccessToken attempts to exchange authorization code for access token 1`] = `
 Array [
   Array [
     "lo-app-tools-auth",
@@ -9,7 +9,7 @@ Array [
 ]
 `;
 
-exports[`refreshAccessToken performs refresh_token if called with expiringRefresh 1`] = `
+exports[`with auth successfully created refreshAccessToken performs refresh_token if called with expiringRefresh 1`] = `
 Array [
   Array [
     "lo-app-tools-auth",
