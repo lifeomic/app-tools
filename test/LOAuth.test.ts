@@ -64,8 +64,8 @@ beforeEach(() => {
     }
   };
   clientOAuth2.code.getToken.mockResolvedValue(mockToken);
-  clientOAuth2.code.getUri.mockResolvedValue('http://integ-test/oauth-uri');
-  clientOAuth2.createToken.mockResolvedValue(mockToken);
+  clientOAuth2.code.getUri.mockReturnValue('http://integ-test/oauth-uri');
+  clientOAuth2.createToken.mockReturnValue(mockToken);
   globals.window.localStorage.getItem.mockReturnValue(null);
   ctorParams = {
     clientId: '7cbji8hkta84ons79j34qcfdci',
@@ -204,7 +204,7 @@ describe('with auth successfully created', () => {
     const appUrl = 'https://unit-test';
     globals.window.location.href = appUrl;
     clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
-    clientOAuth2.createToken.mockResolvedValue({
+    clientOAuth2.createToken.mockReturnValue({
       ...mockToken,
       expires: {
         getTime: () => Date.now() * 2
