@@ -1,0 +1,9 @@
+{
+  "extends": ["tslint-config-semistandard", "tslint-config-prettier"],
+  "rules": {
+    "semicolon": [true, "always"],
+    "quotemark": [true, "single", "avoid-escape"],
+    "no-unused-variable": false,
+    "strict-type-predicates": false
+  }
+}

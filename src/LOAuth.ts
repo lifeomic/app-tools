@@ -158,7 +158,7 @@ class LOAuth {
           })
         });
         const responseJson = await response.json();
-        this.token = await this.client.createToken(
+        this.token = this.client.createToken(
           Object.assign(
             {
               refresh_token: this.token.refreshToken
@@ -171,14 +171,14 @@ class LOAuth {
     } catch (error) {
       const tokenFromStorage = this._getTokenDataFromStorage();
       if (tokenFromStorage) {
-        this.token = await this.client.createToken(tokenFromStorage as any);
+        this.token = this.client.createToken(tokenFromStorage as any);
         this.token.expiresIn(new Date(tokenFromStorage.expires));
         if (this._isTokenExpiring(options)) {
           await this.refreshAccessToken({ expiringRefresh: true });
         }
       } else {
         console.warn(error, 'Error refreshing access token - redirecting');
-        window.location.href = await this.client.code.getUri();
+        window.location.href = this.client.code.getUri();
       }
     }
   }
