@@ -42,7 +42,21 @@ class LOAuth {
       ...this.appState,
       ...options.appState
     };
-    const encodedState = encodeURIComponent(JSON.stringify(state));
+    let clientState = JSON.stringify(state);
+
+    /**
+     * Skip over the encoding when there is a 'state' query parameter.  This is the
+     * scenario when we are loading from the redirected auth endpoint and the state
+     * is already encoded in the URL parameter.  The problem is that encoding/decoding
+     * is being handled on multiple layers so that this client loads after the auth
+     * redirect, client-oauth will parse the state from the query param as unencoded,
+     * stringified JSON and when we pass an encoded version in, there is a comparison
+     * failure which results in a second redirect.
+     */
+    const queryParameters = new URLSearchParams(window.location.search);
+    if (!queryParameters.get('state')) {
+        clientState = encodeURIComponent(clientState);
+    }
 
     this.client = new ClientOAuth2({
       clientId: options.clientId,
@@ -50,7 +64,7 @@ class LOAuth {
       accessTokenUri: options.accessTokenUri,
       redirectUri: options.redirectUri,
       scopes: options.scopes,
-      state: encodedState
+      state: clientState
     });
     this.clientOptions = options;
     this.clientOptions.storageKey = options.storageKey || AUTH_STORAGE_KEY;
@@ -70,7 +84,8 @@ class LOAuth {
     });
     let queryString = queryParameters.toString();
     queryString = queryString.length ? `?${queryString}` : '';
-    return `${protocol}//${hostname}${port}${queryString}`;
+    const pathname = this.appState.pathname || '';
+    return `${protocol}//${hostname}${port}${pathname}${queryString}`;
   }
 
   _decodeAppState () {
@@ -84,6 +99,13 @@ class LOAuth {
           this.appState[param] = queryParameters.get(param);
         }
       });
+
+      // After redirect pathname will be the root directory, but don't add that to 
+      // the appState object because it messes up the Object key ordering and causes
+      // the state comparison to fail
+      if (window.location.pathname && window.location.pathname !== '/') {
+        this.appState.pathname = window.location.pathname;
+      }
 
       // If after login flow, decode from state
       const decodedState = decodeURIComponent(queryParameters.get('state') || '{}');
