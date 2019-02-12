@@ -18,7 +18,7 @@ class LOAuth {
   private clientOptions: LOAuth.Config;
   private token: LOAuth.Token;
   private refreshInterval: number;
-  appState: any;
+  appState: Record<string, string>;
 
   constructor(options: LOAuth.Config) {
     const required = [
@@ -37,26 +37,7 @@ class LOAuth {
       }
     }
 
-    this._decodeAppState();
-    const state = {
-      ...this.appState,
-      ...options.appState
-    };
-    let clientState = JSON.stringify(state);
-
-    /**
-     * Skip over the encoding when there is a 'state' query parameter.  This is the
-     * scenario when we are loading from the redirected auth endpoint and the state
-     * is already encoded in the URL parameter.  The problem is that encoding/decoding
-     * is being handled on multiple layers so that this client loads after the auth
-     * redirect, client-oauth will parse the state from the query param as unencoded,
-     * stringified JSON and when we pass an encoded version in, there is a comparison
-     * failure which results in a second redirect.
-     */
-    const queryParameters = new URLSearchParams(window.location.search);
-    if (!queryParameters.get('state')) {
-        clientState = encodeURIComponent(clientState);
-    }
+    const state = this._getStateForClientOAuth(options);
 
     this.client = new ClientOAuth2({
       clientId: options.clientId,
@@ -64,7 +45,7 @@ class LOAuth {
       accessTokenUri: options.accessTokenUri,
       redirectUri: options.redirectUri,
       scopes: options.scopes,
-      state: clientState
+      state
     });
     this.clientOptions = options;
     this.clientOptions.storageKey = options.storageKey || AUTH_STORAGE_KEY;
@@ -113,6 +94,31 @@ class LOAuth {
     } catch (error) {
       console.warn(error, 'Error occurred parsing state query string parameter');
     }
+  }
+
+  private _getStateForClientOAuth(options: LOAuth.Config) {
+    this._decodeAppState();
+
+    let state = JSON.stringify({
+      ...this.appState,
+      ...options.appState
+    });
+
+    /**
+     * Skip over the encoding when there is a 'state' query parameter.  This is the
+     * scenario when we are loading from the redirected auth endpoint and the state
+     * is already encoded in the URL parameter.  The problem is that encoding/decoding
+     * is being handled on multiple layers so that this client loads after the auth
+     * redirect, client-oauth will parse the state from the query param as unencoded,
+     * stringified JSON and when we pass an encoded version in, there is a comparison
+     * failure which results in a second redirect.
+     */
+    const queryParameters = new URLSearchParams(window.location.search);
+    if (!queryParameters.get('state')) {
+        state = encodeURIComponent(state);
+    }
+
+    return state;
   }
 
   private _storeTokenData(token: LOAuth.Token) {
