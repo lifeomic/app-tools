@@ -4,7 +4,7 @@ const globals = require('../src/globals');
 import LOAuth from '../src/LOAuth';
 
 jest.mock('client-oauth2', () => jest.fn().mockImplementation((...params) => {
-  ClientOAuth2Ctor(...params)
+  ClientOAuth2Ctor(...params);
   return clientOAuth2;
 }));
 
@@ -14,7 +14,8 @@ jest.mock('../src/globals', () => ({
       href: 'set-in-before-each!',
       search: 'set-in-before-each!',
       protocol: 'https:',
-      hostname: 'unit-test'
+      hostname: 'unit-test',
+      pathname: ''
     },
     history: {
       replaceState: jest.fn()
@@ -45,6 +46,7 @@ const clientOAuth2 = {
 const ClientOAuth2Ctor = jest.fn();
 
 beforeEach(() => {
+  globals.window.location = {};
   tokenResponseJson = {
     access_token: 'access_token',
     expires_in: 3600,
@@ -130,12 +132,25 @@ test('ctor passes empty state when appropriate', async () => {
   expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
 
+test('ctor encodes pathname in state object', async () => {
+  const pathname = '/deep/client/path';
+  const expectedState = encodeURIComponent(JSON.stringify({ pathname }));
+  globals.window.location.pathname = pathname;
+  auth = new LOAuth(ctorParams);
+  expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
+});
+
 describe('with auth successfully created', () => {
   beforeEach(() => {
     auth = new LOAuth(ctorParams);
   });
 
   test('refreshAccessToken attempts to exchange authorization code for access token', async () => {
+    globals.window.location.protocol = 'https:';
+    globals.window.location.hostname = 'unit-test';
+    globals.window.location.pathname = '/test/deep/links/';
+    auth = new LOAuth(ctorParams);
+    
     await auth.refreshAccessToken();
 
     const client = ClientOAuth2.mock.results[0].value;
@@ -145,13 +160,13 @@ describe('with auth successfully created', () => {
     );
     expect(globals.window.history.replaceState).toBeCalledTimes(1);
     expect(globals.window.history.replaceState.mock.calls[0][2]).toBe(
-      'https://unit-test'
+      'https://unit-test/test/deep/links/'
     );
     expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
   });
 
   test('refreshAccessToken decodes and exposes appState', async () => {
-    const appState = { account: 'myaccount', projectId: 'myproject', customAppField: 'val' };
+    const appState = { account: 'myaccount', projectId: 'myproject', customAppField: 'val', pathname: '/client/deep/link/url/' };
     const encodedState = encodeURIComponent(JSON.stringify(appState));
     globals.window.location.search = `?client_id=foo&authorization_code=bar&state=${encodedState}`;
     globals.window.location.href = `https://unit-test${globals.window.location.search}`;
@@ -160,6 +175,7 @@ describe('with auth successfully created', () => {
     expect(auth.appState.account).toBe('myaccount');
     expect(auth.appState.projectId).toBe('myproject');
     expect(auth.appState.customAppField).toBe('val');
+    expect(auth.appState.pathname).toBe('/client/deep/link/url/');
   });
 
   test('refreshAccessToken does nothing if token already captured', async () => {
@@ -356,7 +372,7 @@ describe('with auth successfully created', () => {
   });
 
   test('logout redirects to the logoutUri', async () => {
-    auth.stopAutomaticTokenRefresh = jest.fn()
+    auth.stopAutomaticTokenRefresh = jest.fn();
     await auth.logout();
 
     expect(auth.stopAutomaticTokenRefresh).toBeCalledTimes(1);
