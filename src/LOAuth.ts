@@ -81,7 +81,7 @@ class LOAuth {
         }
       });
 
-      // After redirect pathname will be the root directory, but don't add that to 
+      // After redirect pathname will be the root directory, but don't add that to
       // the appState object because it messes up the Object key ordering and causes
       // the state comparison to fail
       if (window.location.pathname && window.location.pathname !== '/') {
@@ -99,10 +99,16 @@ class LOAuth {
   private _getStateForClientOAuth(options: LOAuth.Config) {
     this._decodeAppState();
 
-    let state = JSON.stringify({
+    let state = {
       ...this.appState,
       ...options.appState
-    });
+    };
+
+    if (Object.keys(state).length === 0) {
+      return undefined;
+    }
+
+    state = JSON.stringify(state);
 
     /**
      * Skip over the encoding when there is a 'state' query parameter.  This is the
@@ -115,7 +121,7 @@ class LOAuth {
      */
     const queryParameters = new URLSearchParams(window.location.search);
     if (!queryParameters.get('state')) {
-        state = encodeURIComponent(state);
+      state = encodeURIComponent(state);
     }
 
     return state;
@@ -185,16 +191,26 @@ class LOAuth {
             redirect_uri: this.clientOptions.redirectUri
           })
         });
-        const responseJson = await response.json();
-        this.token = this.client.createToken(
-          Object.assign(
-            {
-              refresh_token: this.token.refreshToken
-            },
-            responseJson
-          )
-        );
-        this._storeTokenData(this.token);
+
+        // Only create/store tokens from a valid response
+        if (response.status === 200) {
+          const responseJson = await response.json();
+
+          this.token = this.client.createToken(
+            Object.assign(
+              {
+                refresh_token: this.token.refreshToken
+              },
+              responseJson
+            )
+          );
+          this._storeTokenData(this.token);
+        } else {
+          // Go back to the no token path if refresh failed
+          // This will most likely result in an auth redirect
+          this.token = null;
+          await this.refreshAccessToken();
+      }
       }
     } catch (error) {
       const tokenFromStorage = this._getTokenDataFromStorage();
@@ -202,6 +218,12 @@ class LOAuth {
         this.token = this.client.createToken(tokenFromStorage as any);
         this.token.expiresIn(new Date(tokenFromStorage.expires));
         if (this._isTokenExpiring(options)) {
+          /**
+           * Remove token from storage. It will be added back on successful token refresh
+           * The other possibility is that there is an error refreshing the token and this
+           * token should be thrown out until the user is authenticated again
+           */
+          this._removeTokenDataFromStorage();
           await this.refreshAccessToken({ expiringRefresh: true });
         }
       } else {

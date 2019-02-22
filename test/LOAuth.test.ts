@@ -30,7 +30,7 @@ jest.mock('../src/globals', () => ({
     },
     setInterval: jest.fn(),
     clearInterval: jest.fn(),
-    fetch: jest.fn().mockResolvedValue({ json: async () => tokenResponseJson })
+    fetch: jest.fn().mockResolvedValue({ json: async () => tokenResponseJson, status: 200 })
   }
 }));
 
@@ -125,7 +125,7 @@ test('ctor captures application state from OAuth state param', async () => {
 
 test('ctor passes empty state when appropriate', async () => {
   delete ctorParams.appState;
-  const expectedState = encodeURIComponent(JSON.stringify({}));
+  const expectedState = undefined;
   globals.window.location.href = 'https://unit-test';
   globals.window.location.search = '';
   auth = new LOAuth(ctorParams);
@@ -203,6 +203,34 @@ describe('with auth successfully created', () => {
       })
     );
     expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(1);
+    expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
+  });
+
+  test('refreshAccessToken expiringRefresh handles refresh error', async () => {
+    await auth.refreshAccessToken(); // token captured
+
+    expect(globals.window.localStorage.setItem).toBeCalledTimes(1);
+
+    globals.window.fetch.mockReturnValueOnce({
+      status: 400,
+      error: 'invalid_grant'
+    });
+
+    await auth.refreshAccessToken({ expiringRefresh: true });
+
+    expect(globals.window.fetch).toBeCalledTimes(1);
+    expect(globals.window.fetch.mock.calls[0][0]).toBe(ctorParams.accessTokenUri);
+    expect(globals.window.fetch.mock.calls[0][1].body).toEqual(
+      queryString.stringify({
+        client_id: ctorParams.clientId,
+        grant_type: 'refresh_token',
+        refresh_token: mockToken.refreshToken,
+        redirect_uri: ctorParams.redirectUri
+      })
+    );
+    expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(0);
+    expect(globals.window.localStorage.setItem).toBeCalledTimes(2);
+
     expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
   });
 
