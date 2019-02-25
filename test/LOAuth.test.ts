@@ -30,7 +30,7 @@ jest.mock('../src/globals', () => ({
     },
     setInterval: jest.fn(),
     clearInterval: jest.fn(),
-    fetch: jest.fn().mockResolvedValue({ json: async () => tokenResponseJson, status: 200 })
+    fetch: jest.fn().mockResolvedValue({ json: async () => tokenResponseJson, ok: true })
   }
 }));
 
@@ -212,6 +212,7 @@ describe('with auth successfully created', () => {
     expect(globals.window.localStorage.setItem).toBeCalledTimes(1);
 
     globals.window.fetch.mockReturnValueOnce({
+      ok: false,
       status: 400,
       error: 'invalid_grant'
     });

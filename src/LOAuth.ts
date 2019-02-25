@@ -193,7 +193,7 @@ class LOAuth {
         });
 
         // Only create/store tokens from a valid response
-        if (response.status === 200) {
+        if (response.ok) {
           const responseJson = await response.json();
 
           this.token = this.client.createToken(
