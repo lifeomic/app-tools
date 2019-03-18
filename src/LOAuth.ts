@@ -7,11 +7,16 @@ const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
 const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
-const LO_QUERY_STRING_PARAMS = [
-  'account',
-  'projectId',
-  'cohortId'
-];
+const LO_QUERY_STRING_PARAMS = ['account', 'projectId', 'cohortId'];
+
+const isStringifiedJSON = (data: string) => {
+  try {
+    JSON.parse(data);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 class LOAuth {
   private client: ClientOAuth2;
@@ -52,30 +57,32 @@ class LOAuth {
     this.clientOptions.storage = options.storage || window.localStorage;
   }
 
-  _getAppUri () {
-    this._decodeAppState();
+  _getAppUri() {
+    this._decodeAppState(this.clientOptions);
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
     const port = window.location.port ? ':' + window.location.port : '';
     const queryParameters = new URLSearchParams();
-    LO_QUERY_STRING_PARAMS.forEach(param => {
+
+    this._getAllClientQueryParams(this.clientOptions).forEach(param => {
       if (this.appState[param]) {
         queryParameters.set(param, this.appState[param]);
       }
     });
+
     let queryString = queryParameters.toString();
     queryString = queryString.length ? `?${queryString}` : '';
     const pathname = this.appState.pathname || '';
     return `${protocol}//${hostname}${port}${pathname}${queryString}`;
   }
 
-  _decodeAppState () {
+  _decodeAppState(options: LOAuth.Config) {
     const queryParameters = new URLSearchParams(window.location.search);
     try {
       this.appState = {};
 
       // If initial load, read from queryStrings
-      LO_QUERY_STRING_PARAMS.forEach(param => {
+      this._getAllClientQueryParams(options).forEach(param => {
         if (queryParameters.get(param)) {
           this.appState[param] = queryParameters.get(param);
         }
@@ -89,15 +96,28 @@ class LOAuth {
       }
 
       // If after login flow, decode from state
-      const decodedState = decodeURIComponent(queryParameters.get('state') || '{}');
+      const decodedState = decodeURIComponent(
+        queryParameters.get('state') || '{}'
+      );
       Object.assign(this.appState, JSON.parse(decodedState));
     } catch (error) {
-      console.warn(error, 'Error occurred parsing state query string parameter');
+      console.warn(
+        error,
+        'Error occurred parsing state query string parameter'
+      );
     }
   }
 
+  private _getAllClientQueryParams(options: LOAuth.Config) {
+    if (options.validQueryParams) {
+      return LO_QUERY_STRING_PARAMS.concat(options.validQueryParams);
+    }
+
+    return LO_QUERY_STRING_PARAMS;
+  }
+
   private _getStateForClientOAuth(options: LOAuth.Config) {
-    this._decodeAppState();
+    this._decodeAppState(options);
 
     let state = {
       ...this.appState,
@@ -111,16 +131,28 @@ class LOAuth {
     state = JSON.stringify(state);
 
     /**
-     * Skip over the encoding when there is a 'state' query parameter.  This is the
-     * scenario when we are loading from the redirected auth endpoint and the state
-     * is already encoded in the URL parameter.  The problem is that encoding/decoding
-     * is being handled on multiple layers so that this client loads after the auth
-     * redirect, client-oauth will parse the state from the query param as unencoded,
-     * stringified JSON and when we pass an encoded version in, there is a comparison
-     * failure which results in a second redirect.
+     * When the auth flow is initiated there will be no 'state' query parameter.
+     * Because it is stringified JSON it needs to be encoded before passing it to the
+     * auth provider. If the user has to go through a sign in page to be
+     * authenticated, the redirect seems to contain something close to an encoded
+     * JSON string so that 'queryParameters.get' will return stringified JSON without
+     * an encoding.  In that case we don't want to encode the state value because it
+     * will result in a failed diff when checking the value we pass to the value from
+     * the URL.
+     * If the user is already authenticated and we are redirected immediately from an
+     * auth server (no login page seen), the redirect contains the state value but it
+     * is doubly encoded.  In that case we should encode the state value so that it
+     * will match when compared to the query string
      */
     const queryParameters = new URLSearchParams(window.location.search);
-    if (!queryParameters.get('state')) {
+    const currState = queryParameters.get('state');
+
+    // Encode state if there is no query paramater or if it was doubly encoded
+    if (
+      !currState ||
+      (!isStringifiedJSON(currState) &&
+        isStringifiedJSON(decodeURIComponent(currState)))
+    ) {
       state = encodeURIComponent(state);
     }
 
@@ -210,7 +242,7 @@ class LOAuth {
           // This will most likely result in an auth redirect
           this.token = null;
           await this.refreshAccessToken();
-      }
+        }
       }
     } catch (error) {
       const tokenFromStorage = this._getTokenDataFromStorage();
@@ -294,6 +326,7 @@ declare namespace LOAuth {
     scopes: string[];
     storageKey?: string;
     storage?: Storage;
+    validQueryParams?: string[];
 
     // An object containing application state
     appState?: any;
