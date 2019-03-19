@@ -58,13 +58,13 @@ class LOAuth {
   }
 
   _getAppUri() {
-    this._decodeAppState(this.clientOptions);
+    this._decodeAppState();
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
     const port = window.location.port ? ':' + window.location.port : '';
     const queryParameters = new URLSearchParams();
 
-    this._getAllClientQueryParams(this.clientOptions).forEach(param => {
+    LO_QUERY_STRING_PARAMS.forEach(param => {
       if (this.appState[param]) {
         queryParameters.set(param, this.appState[param]);
       }
@@ -76,13 +76,13 @@ class LOAuth {
     return `${protocol}//${hostname}${port}${pathname}${queryString}`;
   }
 
-  _decodeAppState(options: LOAuth.Config) {
+  _decodeAppState() {
     const queryParameters = new URLSearchParams(window.location.search);
     try {
       this.appState = {};
 
       // If initial load, read from queryStrings
-      this._getAllClientQueryParams(options).forEach(param => {
+      LO_QUERY_STRING_PARAMS.forEach(param => {
         if (queryParameters.get(param)) {
           this.appState[param] = queryParameters.get(param);
         }
@@ -108,16 +108,8 @@ class LOAuth {
     }
   }
 
-  private _getAllClientQueryParams(options: LOAuth.Config) {
-    if (options.validQueryParams) {
-      return LO_QUERY_STRING_PARAMS.concat(options.validQueryParams);
-    }
-
-    return LO_QUERY_STRING_PARAMS;
-  }
-
   private _getStateForClientOAuth(options: LOAuth.Config) {
-    this._decodeAppState(options);
+    this._decodeAppState();
 
     let state = {
       ...this.appState,
@@ -133,16 +125,27 @@ class LOAuth {
     /**
      * When the auth flow is initiated there will be no 'state' query parameter.
      * Because it is stringified JSON it needs to be encoded before passing it to the
-     * auth provider. If the user has to go through a sign in page to be
-     * authenticated, the redirect seems to contain something close to an encoded
-     * JSON string so that 'queryParameters.get' will return stringified JSON without
-     * an encoding.  In that case we don't want to encode the state value because it
-     * will result in a failed diff when checking the value we pass to the value from
-     * the URL.
+     * auth provider. It ends up being doubly encoded. The redirect URI will look like:
+     * https://*.amazoncognito.com/oauth2/authorize?client_id=CLIENTID&state=%257B%2522projectId%2522%253A%2522test%2522%257D
+     * If we don't encode it here, there will only be a single level of encoding, which
+     * will break handoff to a second auth provider (cognito -> google):
+     * https://*.amazoncognito.com/oauth2/authorize?identity_provider=Google&redirect_uri=https://localhost:8080&response_type=CODE&client_id=CLIENTID&state={"projectId":"test"}&scope=openid
+     * The above link results in a 400 because of the state query parameter.
+     *
+     * If the user flows through a third party auth sign in, they will be redirected to:
+     * https://localhost:8080/?code=CODE&state=%7B%22projectId%22%3A%22test%22%7D
+     * Notice only a single encoding this time.
+     *
      * If the user is already authenticated and we are redirected immediately from an
      * auth server (no login page seen), the redirect contains the state value but it
-     * is doubly encoded.  In that case we should encode the state value so that it
-     * will match when compared to the query string
+     * is doubly encoded:
+     * https://localhost:8080/?code=CODE&state=%257B%2522projectId%2522%253A%2522test%2522%257D
+     *
+     * We need to return a matching 'state' value or the auth flow will fail and the
+     * user will be redirected again.  When comparing the state value, reading the
+     * query string removes one layer of encoding so we either need to return an
+     * unencoded string (for the case of a singly encoded query parameter) on a singly
+     * encoded string (for the case of no query parameter or a doubly encoded one)
      */
     const queryParameters = new URLSearchParams(window.location.search);
     const currState = queryParameters.get('state');

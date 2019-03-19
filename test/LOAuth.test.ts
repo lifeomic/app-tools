@@ -38,7 +38,7 @@ jest.mock('../src/globals', () => ({
   }
 }));
 
-let mockToken, tokenResponseJson, ctorParams: LOAuth.Config, auth;
+let mockToken, tokenResponseJson, ctorParams, auth;
 
 const clientOAuth2 = {
   code: {
@@ -176,41 +176,15 @@ test('ctor encodes pathname in state object', async () => {
   expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
 
-test('ctor encodes optional clientQueryParams in state', async () => {
-  ctorParams.validQueryParams = ['foo', 'scope'];
-  const queryParams = {
-    foo: 'test',
-    scope: 'read_write',
-    drop: 'do_not_pass_through'
-  };
-
-  globals.window.location.search = `?${queryString.stringify(queryParams)}`;
-  auth = new LOAuth(ctorParams);
-
-  const { drop, ...rest } = queryParams;
-  const expectedState = encodeURIComponent(JSON.stringify(rest));
-  expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
-});
-
 describe('with auth successfully created', () => {
   beforeEach(() => {
     auth = new LOAuth(ctorParams);
   });
 
   test('refreshAccessToken attempts to exchange authorization code for access token', async () => {
-    ctorParams.validQueryParams = ['my_test_param'];
-    const encodedState = encodeURIComponent(
-      JSON.stringify({
-        ignored_param: 'bar',
-        my_test_param: 'foo'
-      })
-    );
-
     globals.window.location.protocol = 'https:';
     globals.window.location.hostname = 'unit-test';
     globals.window.location.pathname = '/test/deep/links/';
-
-    globals.window.location.search = `?state=${encodedState}`;
     auth = new LOAuth(ctorParams);
 
     await auth.refreshAccessToken();
@@ -221,10 +195,8 @@ describe('with auth successfully created', () => {
       'https://unit-test?client_id=foo&authorization_code=bar'
     );
     expect(globals.window.history.replaceState).toBeCalledTimes(1);
-
-    // replaceState needs to pick up pathname and query params
     expect(globals.window.history.replaceState.mock.calls[0][2]).toBe(
-      'https://unit-test/test/deep/links/?my_test_param=foo'
+      'https://unit-test/test/deep/links/'
     );
     expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
   });
