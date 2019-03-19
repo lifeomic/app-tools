@@ -108,7 +108,7 @@ class LOAuth {
     }
   }
 
-  private _getStateForClientOAuth(options: LOAuth.Config) {
+  private _getStateForClientOAuth(options) {
     this._decodeAppState();
 
     let state = {
@@ -329,7 +329,6 @@ declare namespace LOAuth {
     scopes: string[];
     storageKey?: string;
     storage?: Storage;
-    validQueryParams?: string[];
 
     // An object containing application state
     appState?: any;
