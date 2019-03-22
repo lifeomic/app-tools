@@ -106,7 +106,7 @@ for (const param of ctorRequired) {
 test('ctor captures LO query string parameters for application state', async () => {
   globals.window.location.href = 'https://unit-test?account=myaccount&projectId=myproject';
   globals.window.location.search = '?account=myaccount&projectId=myproject';
-  const expectedState = encodeURIComponent(JSON.stringify({ account: 'myaccount', projectId: 'myproject' }));
+  const expectedState = btoa(JSON.stringify({ account: 'myaccount', projectId: 'myproject' }));
   auth = new LOAuth(ctorParams);
   expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
@@ -116,7 +116,7 @@ test('ctor captures application state from OAuth state param', async () => {
     account: 'myaccount', // This will override queryString params (account lock down for app)
     myField: 'myValue'
   };
-  const expectedState = encodeURIComponent(JSON.stringify(ctorParams.appState));
+  const expectedState = btoa(JSON.stringify(ctorParams.appState));
   globals.window.location.href = `https://unit-test?account=otheraccount`;
   auth = new LOAuth(ctorParams);
   expect(ClientOAuth2Ctor).toBeCalledTimes(1);
@@ -134,7 +134,7 @@ test('ctor passes empty state when appropriate', async () => {
 
 test('ctor encodes pathname in state object', async () => {
   const pathname = '/deep/client/path';
-  const expectedState = encodeURIComponent(JSON.stringify({ pathname }));
+  const expectedState = btoa(JSON.stringify({ pathname }));
   globals.window.location.pathname = pathname;
   auth = new LOAuth(ctorParams);
   expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
@@ -167,7 +167,7 @@ describe('with auth successfully created', () => {
 
   test('refreshAccessToken decodes and exposes appState', async () => {
     const appState = { account: 'myaccount', projectId: 'myproject', customAppField: 'val', pathname: '/client/deep/link/url/' };
-    const encodedState = encodeURIComponent(JSON.stringify(appState));
+    const encodedState = btoa(JSON.stringify(appState));
     globals.window.location.search = `?client_id=foo&authorization_code=bar&state=${encodedState}`;
     globals.window.location.href = `https://unit-test${globals.window.location.search}`;
     await auth.refreshAccessToken();
