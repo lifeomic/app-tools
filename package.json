@@ -14,7 +14,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-push": "auto-changelog --unreleased && git add CHANGELOG.md && git commit -m 'pre-push auto-changelog update'"
+      "pre-push": "bash ./prePush.sh"
     }
   },
   "repository": {
