@@ -12,6 +12,11 @@
     "test": "jest --coverage",
     "version": "auto-changelog --package && git add CHANGELOG.md"
   },
+  "husky": {
+    "hooks": {
+      "pre-push": "auto-changelog --unreleased && git add CHANGELOG.md && git commit -m 'pre-push auto-changelog update'"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/lifeomic/app-tools.git"
@@ -29,6 +34,7 @@
   "devDependencies": {
     "@types/jest": "^23.3.10",
     "auto-changelog": "^1.16.2",
+    "husky": "^3.1.0",
     "jest": "^23.6.0",
     "ts-jest": "^23.10.5",
     "tslint": "^5.12.0",
