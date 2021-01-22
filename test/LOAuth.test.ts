@@ -231,6 +231,7 @@ describe('with auth successfully created', () => {
     );
     expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(0);
     expect(globals.window.localStorage.setItem).toBeCalledTimes(2);
+    expect(globals.window.localStorage.removeItem).toBeCalledTimes(1);
 
     expect(globals.window.localStorage.setItem.mock.calls).toMatchSnapshot();
   });

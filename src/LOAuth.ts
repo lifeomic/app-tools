@@ -193,10 +193,11 @@ class LOAuth {
           this._storeTokenData(this.token);
         } else {
           // Go back to the no token path if refresh failed
-          // This will most likely result in an auth redirect
+          // This will result in an auth redirect
           this.token = null;
-          await this.refreshAccessToken();
-      }
+          this._removeTokenDataFromStorage();
+          await this.refreshAccessToken(options);
+        }
       }
     } catch (error) {
       const tokenFromStorage = this._getTokenDataFromStorage();
