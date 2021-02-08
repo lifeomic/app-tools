@@ -3,10 +3,12 @@ const ClientOAuth2 = require('client-oauth2');
 const globals = require('../src/globals');
 import LOAuth from '../src/LOAuth';
 
-jest.mock('client-oauth2', () => jest.fn().mockImplementation((...params) => {
-  ClientOAuth2Ctor(...params);
-  return clientOAuth2;
-}));
+jest.mock('client-oauth2', () =>
+  jest.fn().mockImplementation((...params) => {
+    ClientOAuth2Ctor(...params);
+    return clientOAuth2;
+  })
+);
 
 jest.mock('../src/globals', () => ({
   window: {
@@ -30,7 +32,9 @@ jest.mock('../src/globals', () => ({
     },
     setInterval: jest.fn(),
     clearInterval: jest.fn(),
-    fetch: jest.fn().mockResolvedValue({ json: async () => tokenResponseJson, ok: true })
+    fetch: jest
+      .fn()
+      .mockResolvedValue({ json: async () => tokenResponseJson, ok: true })
   }
 }));
 
@@ -104,9 +108,12 @@ for (const param of ctorRequired) {
 }
 
 test('ctor captures LO query string parameters for application state', async () => {
-  globals.window.location.href = 'https://unit-test?account=myaccount&projectId=myproject';
+  globals.window.location.href =
+    'https://unit-test?account=myaccount&projectId=myproject';
   globals.window.location.search = '?account=myaccount&projectId=myproject';
-  const expectedState = btoa(JSON.stringify({ account: 'myaccount', projectId: 'myproject' }));
+  const expectedState = btoa(
+    JSON.stringify({ account: 'myaccount', projectId: 'myproject' })
+  );
   auth = new LOAuth(ctorParams);
   expect(ClientOAuth2Ctor.mock.calls[0][0].state).toEqual(expectedState);
 });
@@ -150,7 +157,7 @@ describe('with auth successfully created', () => {
     globals.window.location.hostname = 'unit-test';
     globals.window.location.pathname = '/test/deep/links/';
     auth = new LOAuth(ctorParams);
-    
+
     await auth.refreshAccessToken();
 
     const client = ClientOAuth2.mock.results[0].value;
@@ -166,7 +173,12 @@ describe('with auth successfully created', () => {
   });
 
   test('refreshAccessToken decodes and exposes appState', async () => {
-    const appState = { account: 'myaccount', projectId: 'myproject', customAppField: 'val', pathname: '/client/deep/link/url/' };
+    const appState = {
+      account: 'myaccount',
+      projectId: 'myproject',
+      customAppField: 'val',
+      pathname: '/client/deep/link/url/'
+    };
     const encodedState = btoa(JSON.stringify(appState));
     globals.window.location.search = `?client_id=foo&authorization_code=bar&state=${encodedState}`;
     globals.window.location.href = `https://unit-test${globals.window.location.search}`;
@@ -193,7 +205,9 @@ describe('with auth successfully created', () => {
     await auth.refreshAccessToken({ expiringRefresh: true });
 
     expect(globals.window.fetch).toBeCalledTimes(1);
-    expect(globals.window.fetch.mock.calls[0][0]).toBe(ctorParams.accessTokenUri);
+    expect(globals.window.fetch.mock.calls[0][0]).toBe(
+      ctorParams.accessTokenUri
+    );
     expect(globals.window.fetch.mock.calls[0][1].body).toEqual(
       queryString.stringify({
         client_id: ctorParams.clientId,
@@ -220,7 +234,9 @@ describe('with auth successfully created', () => {
     await auth.refreshAccessToken({ expiringRefresh: true });
 
     expect(globals.window.fetch).toBeCalledTimes(1);
-    expect(globals.window.fetch.mock.calls[0][0]).toBe(ctorParams.accessTokenUri);
+    expect(globals.window.fetch.mock.calls[0][0]).toBe(
+      ctorParams.accessTokenUri
+    );
     expect(globals.window.fetch.mock.calls[0][1].body).toEqual(
       queryString.stringify({
         client_id: ctorParams.clientId,
@@ -336,37 +352,47 @@ describe('with auth successfully created', () => {
       interval: 5,
       refreshWindow: 5 * 1000,
       override: true,
-      testTitle: 'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with overrides'
+      testTitle:
+        'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with overrides'
     },
     {
       // Defaults
       interval: 30 * 1000,
       refreshWindow: 5,
-      testTitle: 'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with defaults'
+      testTitle:
+        'startAutomaticTokenRefresh gets token and automatically refreshes before expiration with defaults'
     }
   ];
   for (const config of startAutomaticTokenRefreshConfigs) {
     test(config.testTitle, async () => {
       auth.refreshAccessToken = jest.fn();
-      const options = config.override ? {
-        interval: config.interval,
-        refreshWindow: config.refreshWindow
-      } : {};
+      const options = config.override
+        ? {
+            interval: config.interval,
+            refreshWindow: config.refreshWindow
+          }
+        : {};
       await auth.startAutomaticTokenRefresh(options);
-      mockToken.expires = new Date(Date.now() + ((config.refreshWindow + 2) * 60 * 1000));
+      mockToken.expires = new Date(
+        Date.now() + (config.refreshWindow + 2) * 60 * 1000
+      );
       auth.token = mockToken;
 
-      expect(auth.refreshAccessToken).toBeCalledTimes(1) ; // Initial retrieval of token from URL
+      expect(auth.refreshAccessToken).toBeCalledTimes(1); // Initial retrieval of token from URL
       expect(globals.window.setInterval).toBeCalledTimes(1);
       expect(globals.window.setInterval.mock.calls[0][1]).toBe(config.interval);
       // Mock setInterval func invocation
       globals.window.setInterval.mock.calls[0][0].bind(auth)();
       expect(auth.refreshAccessToken).toBeCalledTimes(1); // Hasn't expired yet
 
-      mockToken.expires = new Date(Date.now() + ((config.refreshWindow - 1) * 60 * 1000));
+      mockToken.expires = new Date(
+        Date.now() + (config.refreshWindow - 1) * 60 * 1000
+      );
       globals.window.setInterval.mock.calls[0][0].bind(auth)();
       expect(auth.refreshAccessToken).toBeCalledTimes(2); // Expired and called
-      expect(auth.refreshAccessToken.mock.calls[1][0]).toEqual({ expiringRefresh: true });
+      expect(auth.refreshAccessToken.mock.calls[1][0]).toEqual({
+        expiringRefresh: true
+      });
     });
   }
 
@@ -378,7 +404,9 @@ describe('with auth successfully created', () => {
 
     await auth.stopAutomaticTokenRefresh();
     expect(globals.window.clearInterval).toBeCalledTimes(1);
-    expect(globals.window.clearInterval.mock.calls[0][0]).toBe(auth.refreshInterval);
+    expect(globals.window.clearInterval.mock.calls[0][0]).toBe(
+      auth.refreshInterval
+    );
   });
 
   test('sign uses client-oauth2 sign if token present', async () => {
@@ -411,5 +439,19 @@ describe('with auth successfully created', () => {
       logout_uri: ctorParams.logoutRedirectUri
     });
     expect(globals.window.location.href).toBe(`${ctorParams.logoutUri}?${qs}`);
+  });
+
+  test('logout makes a request to the globalLogoutUri on global logout if one was provided', async () => {
+    const globalLogoutUri = 'https://example.com/global-logout';
+    auth = new LOAuth({ ...ctorParams, globalLogoutUri });
+    auth.token = { ...mockToken, accessToken: 'some-token' };
+    auth.stopAutomaticTokenRefresh = jest.fn();
+    await auth.logout(true);
+
+    expect(globals.window.fetch).toBeCalledTimes(1);
+    expect(globals.window.fetch.mock.calls[0][0]).toBe(globalLogoutUri);
+    expect(globals.window.fetch.mock.calls[0][1].headers).toEqual({
+      Authorization: `Bearer some-token`
+    });
   });
 });

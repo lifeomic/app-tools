@@ -7,11 +7,7 @@ const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
 const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
-const LO_QUERY_STRING_PARAMS = [
-  'account',
-  'projectId',
-  'cohortId'
-];
+const LO_QUERY_STRING_PARAMS = ['account', 'projectId', 'cohortId'];
 
 class LOAuth {
   private client: ClientOAuth2;
@@ -52,13 +48,13 @@ class LOAuth {
     this.clientOptions.storage = options.storage || window.localStorage;
   }
 
-  _getAppUri () {
+  _getAppUri() {
     this._decodeAppState();
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
     const port = window.location.port ? ':' + window.location.port : '';
     const queryParameters = new URLSearchParams();
-    LO_QUERY_STRING_PARAMS.forEach(param => {
+    LO_QUERY_STRING_PARAMS.forEach((param) => {
       if (this.appState[param]) {
         queryParameters.set(param, this.appState[param]);
       }
@@ -69,13 +65,13 @@ class LOAuth {
     return `${protocol}//${hostname}${port}${pathname}${queryString}`;
   }
 
-  _decodeAppState () {
+  _decodeAppState() {
     const queryParameters = new URLSearchParams(window.location.search);
     try {
       this.appState = {};
 
       // If initial load, read from queryStrings
-      LO_QUERY_STRING_PARAMS.forEach(param => {
+      LO_QUERY_STRING_PARAMS.forEach((param) => {
         if (queryParameters.get(param)) {
           this.appState[param] = queryParameters.get(param);
         }
@@ -94,7 +90,10 @@ class LOAuth {
         Object.assign(this.appState, JSON.parse(atob(queryState)));
       }
     } catch (error) {
-      console.warn(error, 'Error occurred parsing state query string parameter');
+      console.warn(
+        error,
+        'Error occurred parsing state query string parameter'
+      );
     }
   }
 
@@ -259,9 +258,24 @@ class LOAuth {
     return this.token.sign(options);
   }
 
-  public async logout() {
+  /**
+   * Logs out the local session by removing the token from local storage and redirecting to the logout uri
+   *
+   * @param global indicates a global logout should be performed by making a GET to the globalLogoutUri provided in clientOptions
+   */
+  public async logout(global = false) {
     await this.stopAutomaticTokenRefresh();
     this._removeTokenDataFromStorage();
+
+    const accessToken = this.getAccessToken();
+    if (global && accessToken && this.clientOptions.globalLogoutUri) {
+      await window.fetch(this.clientOptions.globalLogoutUri, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+    }
+
     const qs = queryString.stringify({
       client_id: this.clientOptions.clientId,
       logout_uri: this.clientOptions.logoutRedirectUri
@@ -277,6 +291,7 @@ declare namespace LOAuth {
     accessTokenUri: string;
     redirectUri: string;
     logoutUri: string;
+    globalLogoutUri?: string;
     logoutRedirectUri: string;
     scopes: string[];
     storageKey?: string;
