@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - "master"
+      - 'master'
 
 jobs:
   build:
@@ -19,9 +19,9 @@ jobs:
       - name: Install
         run: yarn install --frozen-lockfile
       - name: Test
-        env:
-          LAMBDA_REMOTE_DOCKER: true
         run: yarn test
+      - name: Build
+        run: yarn build
       - id: tagExistsAndVersion
         name: Check if tags exist in NPM and GIT
         run: |
