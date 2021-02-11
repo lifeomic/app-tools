@@ -9,7 +9,8 @@
     "prebuild": "yarn lint",
     "build": "tsc",
     "pretest": "yarn lint",
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "prepublish": "yarn build"
   },
   "repository": {
     "type": "git",
