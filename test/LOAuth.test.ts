@@ -90,6 +90,8 @@ beforeEach(() => {
     href: 'https://unit-test?client_id=foo&authorization_code=bar',
     search: '?client_id=foo&authorization_code=bar'
   });
+
+  globals.document.cookie = '';
 });
 
 const ctorRequired = [
@@ -473,4 +475,30 @@ describe('with auth successfully created', () => {
       Authorization: `Bearer some-token`
     });
   });
+});
+
+test('setDomainCookieAuthState sets a cookie with the provided token data', async () => {
+  const auth = new LOAuth(ctorParams);
+
+  const accessToken = 'foobar';
+  const refreshToken = 'barbuzz';
+  const clientId = 'someclientid';
+  const cookieDomain = 'us.lifeomic.com';
+  const expires = Date.now() + 1000;
+
+  const params = {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires: expires,
+    clientId,
+    cookieDomain
+  };
+
+  auth.setDomainCookieAuthState(params);
+
+  expect(globals.document.cookie).toBe(
+    `${AUTH_STORAGE_KEY}=${JSON.stringify(
+      params
+    )};domain=.${cookieDomain};Max-Age=10;path=/;secure`
+  );
 });
