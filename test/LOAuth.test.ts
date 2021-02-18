@@ -341,7 +341,7 @@ describe('with auth successfully created', () => {
     expect(globals.window.fetch).toBeCalledTimes(0);
   });
 
-  test('refreshAccessToken uses the token from storage if it exists', async () => {
+  test('refreshAccessToken uses the token from the domain document cookie if it exists', async () => {
     globals.document.cookie = `${AUTH_STORAGE_KEY}=${JSON.stringify({
       accessToken: 'foo',
       refreshToken: 'bar',
