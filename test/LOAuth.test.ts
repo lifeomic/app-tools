@@ -267,6 +267,21 @@ describe('with auth successfully created', () => {
     expect(globals.window.location.href).toBe(loginUri);
   });
 
+  test('refreshAccessToken redirects to loginRedirectUri if set', async () => {
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+
+    globals.window.location.href = 'https://console.dev.skillspring.com';
+    const loginRedirectUri = 'https://apps.dev.lifeomic.com/login';
+    auth = new LOAuth({ ...ctorParams, loginRedirectUri });
+
+    const expected = `${loginRedirectUri}?originalUrl=${encodeURIComponent(
+      globals.window.location.href
+    )}`;
+    await auth.refreshAccessToken();
+
+    expect(globals.window.location.href).toBe(expected);
+  });
+
   test('refreshAccessToken uses token from storage upon error', async () => {
     const appUrl = 'https://unit-test';
     globals.window.location.href = appUrl;
@@ -477,9 +492,7 @@ describe('with auth successfully created', () => {
   });
 });
 
-test('setDomainCookieAuthState sets a cookie with the provided token data', async () => {
-  const auth = new LOAuth(ctorParams);
-
+test('static setDomainCookieAuthState sets a cookie with the provided token data', async () => {
   const accessToken = 'foobar';
   const refreshToken = 'barbuzz';
   const clientId = 'someclientid';
@@ -494,11 +507,28 @@ test('setDomainCookieAuthState sets a cookie with the provided token data', asyn
     cookieDomain
   };
 
-  auth.setDomainCookieAuthState(params);
+  LOAuth.setDomainCookieAuthState(params);
 
   expect(globals.document.cookie).toBe(
     `${AUTH_STORAGE_KEY}=${JSON.stringify(
       params
     )};domain=.${cookieDomain};Max-Age=10;path=/;secure`
+  );
+});
+
+test('setDomainCookieAuthState sets a cookie with the current token data', async () => {
+  const cookieDomain = 'us.lifeomic.com';
+  auth.refreshAccessToken();
+
+  auth.setDomainCookieAuthState(cookieDomain);
+
+  expect(globals.document.cookie).toBe(
+    `${AUTH_STORAGE_KEY}=${JSON.stringify({
+      access_token: auth.token.accessToken,
+      refresh_token: auth.token.refreshToken,
+      expires: auth.token.expires.getTime(),
+      clientId: ctorParams.clientId,
+      cookieDomain
+    })};domain=.${cookieDomain};Max-Age=10;path=/;secure`
   );
 });
