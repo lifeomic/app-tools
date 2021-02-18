@@ -1,7 +1,7 @@
 const queryString = require('query-string');
 const ClientOAuth2 = require('client-oauth2');
 const globals = require('../src/globals');
-import LOAuth from '../src/LOAuth';
+import LOAuth, { AUTH_STORAGE_KEY } from '../src/LOAuth';
 
 jest.mock('client-oauth2', () =>
   jest.fn().mockImplementation((...params) => {
@@ -35,6 +35,9 @@ jest.mock('../src/globals', () => ({
     fetch: jest
       .fn()
       .mockResolvedValue({ json: async () => tokenResponseJson, ok: true })
+  },
+  document: {
+    cookie: ''
   }
 }));
 
@@ -336,6 +339,22 @@ describe('with auth successfully created', () => {
 
     expect(ClientOAuth2.mock.results[0].value.code.getToken).toBeCalledTimes(1);
     expect(globals.window.fetch).toBeCalledTimes(0);
+  });
+
+  test('refreshAccessToken uses the token from storage if it exists', async () => {
+    globals.document.cookie = `${AUTH_STORAGE_KEY}=${JSON.stringify({
+      accessToken: 'foo',
+      refreshToken: 'bar',
+      cookieDomain: 'us.skillspring.com',
+      expiresAt: Date.now() + 100000
+    })}`;
+
+    await auth.refreshAccessToken();
+    expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(1);
+    expect(globals.window.fetch).toBeCalledTimes(0);
+    expect(globals.document.cookie).toBe(
+      `${AUTH_STORAGE_KEY}=;domain=.us.skillspring.com;Max-Age=-9999;path=/;secure`
+    );
   });
 
   test('refreshAccessToken redirects to login upon error', async () => {

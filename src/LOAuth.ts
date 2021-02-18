@@ -1,11 +1,11 @@
 import * as ClientOAuth2 from 'client-oauth2';
 const queryString = require('query-string');
-import { window } from './globals';
+import { window, document } from './globals';
 
 // Defaults:
 const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
-const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
+export const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
 const LO_QUERY_STRING_PARAMS = ['account', 'projectId', 'cohortId'];
 
@@ -112,6 +112,42 @@ class LOAuth {
     return btoa(JSON.stringify(state));
   }
 
+  /**
+   * This method looks for a cookie set by PHC-Login that allows the
+   * applications to exchange auth tokens over different subdomains
+   * see phc-login/src/util/handleAuthResponse
+   */
+  private _getDomainCookieAuthState() {
+    try {
+      if (!document.cookie) {
+        return;
+      }
+      const cookie = document.cookie
+        .split('; ')
+        .find((cookie) => cookie.startsWith(`${AUTH_STORAGE_KEY}=`));
+
+      const value = cookie && cookie.split('=')[1];
+      if (!value) {
+        return;
+      }
+
+      const storedData = JSON.parse(value);
+      this.token = this.client.createToken({
+        access_token: storedData.accessToken,
+        refresh_token: storedData.refreshToken,
+        token_type: 'Bearer',
+        expires: storedData.expiresAt
+      });
+      this.token.expiresIn(new Date(storedData.expiresAt - Date.now()));
+      this._storeTokenData(this.token);
+
+      // delete the cookie after it's read
+      document.cookie = `${AUTH_STORAGE_KEY}=;domain=.${storedData.cookieDomain};Max-Age=-9999;path=/;secure`;
+    } catch (err) {
+      return;
+    }
+  }
+
   private _storeTokenData(token: LOAuth.Token) {
     const { storage, storageKey } = this.clientOptions;
     const data: LOAuth.TokenData = {
@@ -147,6 +183,10 @@ class LOAuth {
   public async refreshAccessToken(options: LOAuth.RefreshOptions = {}) {
     options = Object.assign({}, this.clientOptions, options);
     try {
+      // initially, attempt to get the token from a domain cookie set by phc-login
+      if (!this.token) {
+        this._getDomainCookieAuthState();
+      }
       if (!this.token) {
         // Initial auth token exchange
         this.token = await this.client.code.getToken(
