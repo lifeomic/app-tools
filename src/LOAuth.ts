@@ -1,18 +1,18 @@
 import * as ClientOAuth2 from 'client-oauth2';
 const queryString = require('query-string');
-import { window } from './globals';
+import { window, document } from './globals';
 
 // Defaults:
 const AUTH_TOKEN_INTERVAL = 30 * 1000; // every 30 seconds
 const AUTH_REFRESH_WINDOW = 5; // minutes before token expiration that we renew
-const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
+export const AUTH_STORAGE_KEY = 'lo-app-tools-auth';
 
 const LO_QUERY_STRING_PARAMS = ['account', 'projectId', 'cohortId'];
 
 class LOAuth {
   private client: ClientOAuth2;
   private clientOptions: LOAuth.Config;
-  private token: LOAuth.Token;
+  private token?: LOAuth.Token;
   private refreshInterval: number;
   appState: Record<string, string>;
 
@@ -112,6 +112,67 @@ class LOAuth {
     return btoa(JSON.stringify(state));
   }
 
+  /**
+   * Sets a domain cookie for the token data in a format compatible with this library
+   * The cookie can be read by another application on a compatible domain by triggering
+   * refreshAuthToken, which will find and import the cookie as a token
+   */
+  public setDomainCookieAuthState(token: LOAuth.CookieTokenData) {
+    document.cookie = `lo-app-tools-auth=${JSON.stringify({
+      access_token: token.access_token,
+      refresh_token: token.refresh_token,
+      expires: token.expires,
+      clientId: token.clientId,
+      cookieDomain: token.cookieDomain
+    })};domain=.${token.cookieDomain};Max-Age=10;path=/;secure`;
+  }
+
+  /**
+   * This method looks for a cookie set by setDomainCookieAuthState that allows the
+   * applications to exchange auth tokens over different subdomains
+   */
+  private _getDomainCookieAuthState() {
+    try {
+      if (!document.cookie) {
+        return;
+      }
+      const cookie = document.cookie
+        .split('; ')
+        .find((cookie) =>
+          cookie.startsWith(
+            `${this.clientOptions.storageKey || AUTH_STORAGE_KEY}=`
+          )
+        );
+
+      const value = cookie && cookie.split('=')[1];
+      if (!value) {
+        return;
+      }
+
+      const storedData: LOAuth.CookieTokenData = JSON.parse(value);
+      const token = this.client.createToken({
+        access_token: storedData.access_token,
+        refresh_token: storedData.refresh_token,
+        token_type: 'Bearer'
+      });
+      token.expiresIn(storedData.expires - Date.now());
+
+      // the cookie clientId takes precedent over configured options
+      this.clientOptions.clientId = storedData.clientId;
+
+      // delete the cookie after it's read
+      document.cookie = `${AUTH_STORAGE_KEY}=;domain=.${storedData.cookieDomain};Max-Age=-9999;path=/;secure`;
+
+      return token;
+    } catch (err) {
+      console.warn(
+        'Failed to parse domain cookie for authentication tokens',
+        err
+      );
+      return;
+    }
+  }
+
   private _storeTokenData(token: LOAuth.Token) {
     const { storage, storageKey } = this.clientOptions;
     const data: LOAuth.TokenData = {
@@ -147,6 +208,14 @@ class LOAuth {
   public async refreshAccessToken(options: LOAuth.RefreshOptions = {}) {
     options = Object.assign({}, this.clientOptions, options);
     try {
+      // initially, attempt to get the token from a domain cookie set by phc-login
+      if (!this.token) {
+        this.token = this._getDomainCookieAuthState();
+
+        if (this.token) {
+          this._storeTokenData(this.token);
+        }
+      }
       if (!this.token) {
         // Initial auth token exchange
         this.token = await this.client.code.getToken(
@@ -328,6 +397,15 @@ declare namespace LOAuth {
     token_type: string;
     expires?: number;
   }
+
+  export type CookieTokenData = Omit<
+    TokenData,
+    'id_token' | 'token_type' | 'expires_in'
+  > & {
+    expires: number;
+    clientId: string;
+    cookieDomain: string;
+  };
 }
 
 export default LOAuth;

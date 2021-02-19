@@ -1,7 +1,7 @@
 const queryString = require('query-string');
 const ClientOAuth2 = require('client-oauth2');
 const globals = require('../src/globals');
-import LOAuth from '../src/LOAuth';
+import LOAuth, { AUTH_STORAGE_KEY } from '../src/LOAuth';
 
 jest.mock('client-oauth2', () =>
   jest.fn().mockImplementation((...params) => {
@@ -35,6 +35,9 @@ jest.mock('../src/globals', () => ({
     fetch: jest
       .fn()
       .mockResolvedValue({ json: async () => tokenResponseJson, ok: true })
+  },
+  document: {
+    cookie: ''
   }
 }));
 
@@ -87,6 +90,8 @@ beforeEach(() => {
     href: 'https://unit-test?client_id=foo&authorization_code=bar',
     search: '?client_id=foo&authorization_code=bar'
   });
+
+  globals.document.cookie = '';
 });
 
 const ctorRequired = [
@@ -338,6 +343,22 @@ describe('with auth successfully created', () => {
     expect(globals.window.fetch).toBeCalledTimes(0);
   });
 
+  test('refreshAccessToken uses the token from the domain document cookie if it exists', async () => {
+    globals.document.cookie = `${AUTH_STORAGE_KEY}=${JSON.stringify({
+      accessToken: 'foo',
+      refreshToken: 'bar',
+      cookieDomain: 'us.skillspring.com',
+      expiresAt: Date.now() + 100000
+    })}`;
+
+    await auth.refreshAccessToken();
+    expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(1);
+    expect(globals.window.fetch).toBeCalledTimes(0);
+    expect(globals.document.cookie).toBe(
+      `${AUTH_STORAGE_KEY}=;domain=.us.skillspring.com;Max-Age=-9999;path=/;secure`
+    );
+  });
+
   test('refreshAccessToken redirects to login upon error', async () => {
     globals.window.location.href = 'https://unit-test'; // No client_id etc.
     clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
@@ -454,4 +475,30 @@ describe('with auth successfully created', () => {
       Authorization: `Bearer some-token`
     });
   });
+});
+
+test('setDomainCookieAuthState sets a cookie with the provided token data', async () => {
+  const auth = new LOAuth(ctorParams);
+
+  const accessToken = 'foobar';
+  const refreshToken = 'barbuzz';
+  const clientId = 'someclientid';
+  const cookieDomain = 'us.lifeomic.com';
+  const expires = Date.now() + 1000;
+
+  const params = {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires: expires,
+    clientId,
+    cookieDomain
+  };
+
+  auth.setDomainCookieAuthState(params);
+
+  expect(globals.document.cookie).toBe(
+    `${AUTH_STORAGE_KEY}=${JSON.stringify(
+      params
+    )};domain=.${cookieDomain};Max-Age=10;path=/;secure`
+  );
 });
