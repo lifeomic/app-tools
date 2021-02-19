@@ -117,7 +117,7 @@ class LOAuth {
    * The cookie can be read by another application on a compatible domain by triggering
    * refreshAuthToken, which will find and import the cookie as a token
    */
-  public setDomainCookieAuthState(token: LOAuth.CookieTokenData) {
+  public static setDomainCookieAuthState(token: LOAuth.CookieTokenData) {
     document.cookie = `lo-app-tools-auth=${JSON.stringify({
       access_token: token.access_token,
       refresh_token: token.refresh_token,
@@ -125,6 +125,22 @@ class LOAuth {
       clientId: token.clientId,
       cookieDomain: token.cookieDomain
     })};domain=.${token.cookieDomain};Max-Age=10;path=/;secure`;
+  }
+
+  /**
+   * Sets a domain cookie with the current authentication token
+   */
+  public setDomainCookieAuthState(cookieDomain: string) {
+    if (!this.token) {
+      return;
+    }
+    LOAuth.setDomainCookieAuthState({
+      access_token: this.token.accessToken,
+      refresh_token: this.token.refreshToken,
+      expires: this.token.expires?.getTime(),
+      clientId: this.clientOptions.clientId,
+      cookieDomain
+    });
   }
 
   /**
@@ -283,7 +299,13 @@ class LOAuth {
         }
       } else {
         console.warn(error, 'Error refreshing access token - redirecting');
-        window.location.href = this.client.code.getUri();
+        if (this.clientOptions.loginRedirectUri) {
+          window.location.href = `${
+            this.clientOptions.loginRedirectUri
+          }?originalUrl=${encodeURIComponent(window.location.href)}`;
+        } else {
+          window.location.href = this.client.code.getUri();
+        }
       }
     }
   }
@@ -360,7 +382,13 @@ declare namespace LOAuth {
     accessTokenUri: string;
     redirectUri: string;
     logoutUri: string;
+    /** fetched on login to trigger a global logout */
     globalLogoutUri?: string;
+    /**
+     * used to redirect to start login process when there are no existing valid tokens
+     * this pre-empts using the code from from the current application to get initial tokens
+     */
+    loginRedirectUri?: string;
     logoutRedirectUri: string;
     scopes: string[];
     storageKey?: string;
