@@ -477,6 +477,24 @@ describe('with auth successfully created', () => {
     expect(globals.window.location.href).toBe(`${ctorParams.logoutUri}?${qs}`);
   });
 
+  test('logout redirects to the logoutUri that already includes a query param', async () => {
+    const logoutUri = `${ctorParams.logoutUri}?logout=pending`;
+    auth = new LOAuth({
+      ...ctorParams,
+      logoutUri
+    });
+
+    auth.stopAutomaticTokenRefresh = jest.fn();
+    await auth.logout();
+
+    expect(auth.stopAutomaticTokenRefresh).toBeCalledTimes(1);
+    const qs = queryString.stringify({
+      client_id: ctorParams.clientId,
+      logout_uri: ctorParams.logoutRedirectUri
+    });
+    expect(globals.window.location.href).toBe(`${logoutUri}&${qs}`);
+  });
+
   test('logout makes a request to the globalLogoutUri on global logout if one was provided', async () => {
     const globalLogoutUri = 'https://example.com/global-logout';
     auth = new LOAuth({ ...ctorParams, globalLogoutUri });

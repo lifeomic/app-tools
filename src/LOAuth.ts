@@ -367,11 +367,10 @@ class LOAuth {
       });
     }
 
-    const qs = queryString.stringify({
-      client_id: this.clientOptions.clientId,
-      logout_uri: this.clientOptions.logoutRedirectUri
-    });
-    window.location.href = `${this.clientOptions.logoutUri}?${qs}`;
+    const url = new URL(this.clientOptions.logoutUri);
+    url.searchParams.set('client_id', this.clientOptions.clientId);
+    url.searchParams.set('logout_uri', this.clientOptions.logoutRedirectUri);
+    window.location.href = url.href;
   }
 }
 
