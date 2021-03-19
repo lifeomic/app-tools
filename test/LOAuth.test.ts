@@ -359,14 +359,18 @@ describe('with auth successfully created', () => {
   });
 
   test('refreshAccessToken uses the token from the domain document cookie if it exists', async () => {
+    const expires = Date.now() + 100000;
+    const expiresDate = new Date(expires);
     globals.document.cookie = `${AUTH_STORAGE_KEY}=${JSON.stringify({
-      accessToken: 'foo',
-      refreshToken: 'bar',
+      access_token: 'foo',
+      refresh_token: 'bar',
       cookieDomain: 'us.skillspring.com',
-      expiresAt: Date.now() + 100000
+      expires
     })}`;
 
     await auth.refreshAccessToken();
+
+    expect(auth.token.expiresIn).toHaveBeenCalledWith(expiresDate);
     expect(ClientOAuth2.mock.results[0].value.createToken).toBeCalledTimes(1);
     expect(globals.window.fetch).toBeCalledTimes(0);
     expect(globals.document.cookie).toBe(
