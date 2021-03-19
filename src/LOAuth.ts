@@ -171,7 +171,7 @@ class LOAuth {
         refresh_token: storedData.refresh_token,
         token_type: 'Bearer'
       });
-      token.expiresIn(storedData.expires - Date.now());
+      token.expiresIn(new Date(storedData.expires));
 
       // the cookie clientId takes precedent over configured options
       this.clientOptions.clientId = storedData.clientId;
