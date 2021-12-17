@@ -300,9 +300,10 @@ class LOAuth {
       } else {
         console.warn(error, 'Error refreshing access token - redirecting');
         if (this.clientOptions.loginRedirectUri) {
-          window.location.href = `${
-            this.clientOptions.loginRedirectUri
-          }?originalUrl=${encodeURIComponent(window.location.href)}`;
+          const redirectUri = new URL(this.clientOptions.loginRedirectUri);
+          redirectUri.searchParams.append('originalUrl', window.location.href);
+          
+          window.location.href = redirectUri.toString();
         } else {
           window.location.href = this.client.code.getUri();
         }
