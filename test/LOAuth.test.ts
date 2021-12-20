@@ -282,6 +282,18 @@ describe('with auth successfully created', () => {
     expect(globals.window.location.href).toBe(expected);
   });
 
+  test('refreshAccessToken preserves existing query string in loginRedirectUri', async () => {
+    clientOAuth2.code.getToken.mockRejectedValue(new Error('unit test'));
+    globals.window.location.href = 'https://console.dev.skillspring.com';
+    const loginRedirectUri = 'https://apps.dev.lifeomic.com/skillspring-login/signup/?email=user%40example.com';
+    const expected = 'https://apps.dev.lifeomic.com/skillspring-login/signup/?email=user%40example.com&originalUrl=https%3A%2F%2Fconsole.dev.skillspring.com';
+
+    await new LOAuth({ ...ctorParams, loginRedirectUri }).refreshAccessToken();
+
+    expect(globals.window.location.href).toBe(expected);
+  });
+
+
   test('refreshAccessToken uses token from storage upon error', async () => {
     const appUrl = 'https://unit-test';
     globals.window.location.href = appUrl;
