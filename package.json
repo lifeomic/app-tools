@@ -1,6 +1,6 @@
 {
   "name": "@lifeomic/app-tools",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Common utilities for PHC app development",
   "main": "dist/index.js",
   "scripts": {
