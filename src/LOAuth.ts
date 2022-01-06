@@ -311,13 +311,12 @@ class LOAuth {
     }
   }
 
-  public async startAutomaticTokenRefresh(options: LOAuth.RefreshOptions) {
+  public async startAutomaticTokenRefresh(options: LOAuth.RefreshOptions = {}) {
     if (!this.token) {
       // Initiate initial auth token exchange
       await this.refreshAccessToken(options);
     }
 
-    options = options || {};
     if (!this.refreshInterval) {
       this.refreshInterval = window.setInterval(async () => {
         try {
