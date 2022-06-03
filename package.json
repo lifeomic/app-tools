@@ -22,6 +22,7 @@
     "url": "https://github.com/lifeomic/app-tools/issues"
   },
   "dependencies": {
+    "axios": "^0.27.2",
     "client-oauth2": "https://github.com/Druotic/js-client-oauth2.git#remove-redirect-pathname-match-check",
     "query-string": "^6.2.0"
   },
