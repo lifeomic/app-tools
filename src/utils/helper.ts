@@ -8,5 +8,5 @@ export const formatAxiosError = <ErrorResponse = any>(
   if (!axios.isAxiosError(error)) {
     throw new AxiosError(String(error));
   }
-  throw error.response?.data || 'unknown axios error';
+  throw error.response?.data || new AxiosError('unknown axios error');
 };

@@ -1,10 +1,63 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { window } from './globals';
 import { DEFAULT_BASE_URL, formatAxiosError } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
 const SESSION_KEYS = ['session', 'username'];
 const TOKEN_KEYS = ['accessToken', 'idToken', 'refreshToken'];
+
+/**
+ * This class performs basic API based authentication based on our apps-auth repo
+ *
+ * Example storage differences
+ *
+ * Web:
+ * const auth = new APIBasedAuth({
+ *   clientId: 'client_id',
+ *   storage: {
+ *     getItem: (key) => Promise.resolve(window.localStorage.getItem(key)),
+ *     removeItem: (key) => Promise.resolve(window.localStorage.removeItem(key)),
+ *     setItem: (key, value) => Promise.resolve(window.localStorage.setItem(key, value)),
+ *   },
+ *   storageKeys: {
+ *     accessToken: 'custom_access_token_key',
+ *     idToken: 'custom_identity_token_key',
+ *     refreshToken: 'custom_refresh_token_key',
+ *     session: 'custom_session_key',
+ *     username: 'custom_username_key',
+ *   },
+ * });
+ *
+ * Mobile (Expo):
+ * import * as SecureStore from 'expo-secure-store';
+ *
+ * const auth = new APIBasedAuth({
+ *   clientId: 'client_id',
+ *   storage: {
+ *     getItem: async (key) => {
+ *       const value = await SecureStore.getItemAsync(key);
+ *       return value;
+ *     },
+ *     removeItem: async (key) => {
+ *       await SecureStore.deleteItemAsync(key);
+ *     },
+ *     setItem: async (key, value) => {
+ *       await SecureStore.setItemAsync(key, value);
+ *     },
+ *   },
+ *   storageKeys: {
+ *     accessToken: 'custom_access_token_key',
+ *     idToken: 'custom_identity_token_key',
+ *     refreshToken: 'custom_refresh_token_key',
+ *     session: 'custom_session_key',
+ *     username: 'custom_username_key',
+ *   },
+ * });
+ *
+ * Reasoning for decisions made:
+ * - Storage of session/token values are individual and not JSON.stringify'd together to
+ *   preserve compatibility with potential React Native storage implementations that have
+ *   maximum storage limitations per key-value pair
+ */
 
 class APIBasedAuth {
   private client: AxiosInstance;
@@ -25,7 +78,7 @@ class APIBasedAuth {
 
     this.clientOptions = {
       clientId,
-      storage: storage || window.localStorage,
+      storage,
       storageKeys
     };
   }
@@ -40,50 +93,50 @@ class APIBasedAuth {
         ? await this._getFromStorage()
         : null)
     };
-    return this.client
-      .post<
-        APIBasedAuth.Tokens,
-        AxiosResponse<APIBasedAuth.Tokens>,
-        APIBasedAuth.VerifyPasswordlessAuthData
+    try {
+      const { data } = await this.client.post<
+        Omit<APIBasedAuth.Tokens, '_type'>,
+        AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
+        Required<APIBasedAuth.VerifyPasswordlessAuthData>
       >('/passwordless-auth/verify', {
         clientId: this.clientOptions.clientId,
         code: input.code,
         session: input.session,
         username: input.username
-      })
-      .then(async ({ data }) => {
-        await this._store('token', data);
-        return data;
-      })
-      .catch(formatAxiosError);
+      });
+      await this._store({ _type: 'token', ...data });
+      return data;
+    } catch (error) {
+      formatAxiosError(error);
+    }
   }
 
-  public initiatePasswordAuth(
+  public async initiatePasswordAuth(
     input: Omit<APIBasedAuth.SignInData, 'clientId'>
   ) {
-    return this.client
-      .post<
-        APIBasedAuth.Tokens,
-        AxiosResponse<APIBasedAuth.Tokens>,
+    try {
+      const { data } = await this.client.post<
+        Omit<APIBasedAuth.Tokens, '_type'>,
+        AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
         APIBasedAuth.SignInData
       >('/login', {
         clientId: this.clientOptions.clientId,
         ...input
-      })
-      .then(async ({ data }) => {
-        await this._store('token', data);
-        return data;
-      })
-      .catch(formatAxiosError);
+      });
+      await this._store({ _type: 'token', ...data });
+      return data;
+    } catch (error) {
+      formatAxiosError(error);
+    }
   }
 
-  public initiatePasswordlessAuth({
+  public async initiatePasswordlessAuth({
     appsBaseUri,
     loginAppBasePath,
     username
   }: Omit<APIBasedAuth.PasswordlessAuthData, 'clientId'>) {
-    return this.client
-      .post<
+    try {
+      const { data } = await this.client.post<
         APIBasedAuth.PasswordlessAuthResponse,
         AxiosResponse<APIBasedAuth.PasswordlessAuthResponse>,
         APIBasedAuth.PasswordlessAuthData
@@ -92,20 +145,24 @@ class APIBasedAuth {
         clientId: this.clientOptions.clientId,
         loginAppBasePath,
         username
-      })
-      .then(async ({ data }) => {
-        await this._store('session', { session: data.session, username });
-        return data;
-      })
-      .catch(formatAxiosError);
+      });
+      await this._store({ _type: 'session', session: data.session, username });
+      return data;
+    } catch (error) {
+      formatAxiosError(error);
+    }
   }
 
   public async logout() {
-    await this._removeFromStorage('session');
-    await this._removeFromStorage('token');
+    await Promise.all([
+      this._removeFromStorage('session'),
+      this._removeFromStorage('token')
+    ]);
   }
 
-  private async _getFromStorage(): Promise<APIBasedAuth.Session> {
+  private async _getFromStorage(): Promise<
+    Omit<APIBasedAuth.Session, '_type'>
+  > {
     if (this.session) {
       return this.session;
     }
@@ -113,14 +170,16 @@ class APIBasedAuth {
     const { storage, storageKeys } = this.clientOptions;
 
     const storedValues = {} as APIBasedAuth.Session;
-    for (const key of SESSION_KEYS) {
-      const value = storage.getItem(
-        storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
-      );
-      storedValues[key] = value instanceof Promise ? await value : value;
+    if (storage) {
+      for (const key of SESSION_KEYS) {
+        storedValues[key] = await storage.getItem(
+          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
+        );
+      }
+
+      this.session = storedValues;
     }
 
-    this.session = storedValues;
     return storedValues;
   }
 
@@ -132,32 +191,31 @@ class APIBasedAuth {
     }
 
     const { storage, storageKeys } = this.clientOptions;
-    for (const key of type === 'session' ? SESSION_KEYS : TOKEN_KEYS) {
-      const value = storage.removeItem(
-        storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
-      );
-      if (value instanceof Promise) {
-        await value;
+    if (storage) {
+      for (const key of type === 'session' ? SESSION_KEYS : TOKEN_KEYS) {
+        await storage.removeItem(
+          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
+        );
       }
     }
   }
 
-  private async _store<T extends APIBasedAuth.StorageTypeName>(
-    type: T,
-    valuesToStore: APIBasedAuth.StorageType<T>
+  private async _store(
+    valuesToStore: APIBasedAuth.Session | APIBasedAuth.Tokens
   ) {
-    const { storage, storageKeys } = this.clientOptions;
-    if (type === 'session') {
-      this.session = valuesToStore as APIBasedAuth.Session;
+    if (valuesToStore._type === 'session') {
+      this.session = valuesToStore;
     }
 
-    for (const key of type === 'session' ? SESSION_KEYS : TOKEN_KEYS) {
-      const value = storage.setItem(
-        storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`,
-        valuesToStore[key]
-      );
-      if (value instanceof Promise) {
-        await value;
+    const { storage, storageKeys } = this.clientOptions;
+    if (storage) {
+      for (const key of valuesToStore._type === 'session'
+        ? SESSION_KEYS
+        : TOKEN_KEYS) {
+        await storage.setItem(
+          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`,
+          valuesToStore[key]
+        );
       }
     }
   }
@@ -165,9 +223,13 @@ class APIBasedAuth {
 
 declare namespace APIBasedAuth {
   export type Config = {
+    /* LO clientId associated with API requests */
     clientId: string;
+    /* base URL for the endpoint used to make API requests */
     baseURL?: string;
+    /* interface for storage that can persist session/token values */
     storage?: Storage;
+    /* custom key names that can be used to store session/token values */
     storageKeys?: StorageKeys;
   };
 
@@ -182,9 +244,11 @@ declare namespace APIBasedAuth {
     session?: string;
   };
 
-  type Session = Record<SessionKey, string>;
-
-  type SessionKey = 'session' | 'username';
+  type Session = {
+    _type: 'session';
+    session: string;
+    username: string;
+  };
 
   export type SignInData = {
     clientId: string;
@@ -193,25 +257,23 @@ declare namespace APIBasedAuth {
   };
 
   export type Storage = {
-    getItem(key: StorageKeys[StorageKey]): string | Promise<string>;
-    removeItem(key: StorageKeys[StorageKey]): void | Promise<void>;
-    setItem(key: StorageKeys[StorageKey], value: string): void | Promise<void>;
+    getItem(key: StorageKeys[StorageKey]): Promise<string>;
+    removeItem(key: StorageKeys[StorageKey]): Promise<void>;
+    setItem(key: StorageKeys[StorageKey], value: string): Promise<void>;
   };
 
-  type StorageKey = SessionKey | TokenKey;
+  type StorageKey = keyof Omit<Session, '_type'> | keyof Omit<Tokens, '_type'>;
 
   export type StorageKeys = Partial<Record<StorageKey, string>>;
 
   type StorageTypeName = 'session' | 'token';
-  type StorageType<T = StorageTypeName> = T extends 'session'
-    ? Session
-    : T extends 'token'
-    ? Tokens
-    : never;
 
-  type TokenKey = 'accessToken' | 'idToken' | 'refreshToken';
-
-  type Tokens = Record<TokenKey, string>;
+  type Tokens = {
+    _type: 'token';
+    accessToken: string;
+    idToken: string;
+    refreshToken: string;
+  };
 
   export type VerifyPasswordlessAuthData = {
     clientId: string;
