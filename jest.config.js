@@ -11,10 +11,16 @@ module.exports = {
   collectCoverage: true,
   coverageThreshold: {
     global: {
-      branches: 80,
-      statements: 80,
-      functions: 80,
-      lines: 80
+      branches: 88,
+      functions: 100,
+      lines: 95,
+      statements: 95,
+    },
+    './src/APIBasedAuth.ts': {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100
     }
   }
 };
