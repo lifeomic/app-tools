@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { DEFAULT_BASE_URL, formatAxiosError } from './utils/helper';
+import { DEFAULT_BASE_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
 const SESSION_KEYS = ['session', 'username'];
@@ -93,41 +93,33 @@ class APIBasedAuth {
         ? await this._getFromStorage()
         : null)
     };
-    try {
-      const { data } = await this.client.post<
-        Omit<APIBasedAuth.Tokens, '_type'>,
-        AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
-        Required<APIBasedAuth.VerifyPasswordlessAuthData>
-      >('/passwordless-auth/verify', {
-        clientId: this.clientOptions.clientId,
-        code: input.code,
-        session: input.session,
-        username: input.username
-      });
-      await this._store({ _type: 'token', ...data });
-      return data;
-    } catch (error) {
-      formatAxiosError(error);
-    }
+    const { data } = await this.client.post<
+      Omit<APIBasedAuth.Tokens, '_type'>,
+      AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
+      Required<APIBasedAuth.VerifyPasswordlessAuthData>
+    >('/passwordless-auth/verify', {
+      clientId: this.clientOptions.clientId,
+      code: input.code,
+      session: input.session,
+      username: input.username
+    });
+    await this._store({ _type: 'token', ...data });
+    return data;
   }
 
   public async initiatePasswordAuth(
     input: Omit<APIBasedAuth.SignInData, 'clientId'>
   ) {
-    try {
-      const { data } = await this.client.post<
-        Omit<APIBasedAuth.Tokens, '_type'>,
-        AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
-        APIBasedAuth.SignInData
-      >('/login', {
-        clientId: this.clientOptions.clientId,
-        ...input
-      });
-      await this._store({ _type: 'token', ...data });
-      return data;
-    } catch (error) {
-      formatAxiosError(error);
-    }
+    const { data } = await this.client.post<
+      Omit<APIBasedAuth.Tokens, '_type'>,
+      AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
+      APIBasedAuth.SignInData
+    >('/login', {
+      clientId: this.clientOptions.clientId,
+      ...input
+    });
+    await this._store({ _type: 'token', ...data });
+    return data;
   }
 
   public async initiatePasswordlessAuth({
@@ -135,22 +127,18 @@ class APIBasedAuth {
     loginAppBasePath,
     username
   }: Omit<APIBasedAuth.PasswordlessAuthData, 'clientId'>) {
-    try {
-      const { data } = await this.client.post<
-        APIBasedAuth.PasswordlessAuthResponse,
-        AxiosResponse<APIBasedAuth.PasswordlessAuthResponse>,
-        APIBasedAuth.PasswordlessAuthData
-      >('/passwordless-auth', {
-        appsBaseUri,
-        clientId: this.clientOptions.clientId,
-        loginAppBasePath,
-        username
-      });
-      await this._store({ _type: 'session', session: data.session, username });
-      return data;
-    } catch (error) {
-      formatAxiosError(error);
-    }
+    const { data } = await this.client.post<
+      APIBasedAuth.PasswordlessAuthResponse,
+      AxiosResponse<APIBasedAuth.PasswordlessAuthResponse>,
+      APIBasedAuth.PasswordlessAuthData
+    >('/passwordless-auth', {
+      appsBaseUri,
+      clientId: this.clientOptions.clientId,
+      loginAppBasePath,
+      username
+    });
+    await this._store({ _type: 'session', session: data.session, username });
+    return data;
   }
 
   public async logout() {
