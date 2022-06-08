@@ -1,6 +1,6 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import APIBasedAuth, { API_AUTH_STORAGE_KEY } from '../src/APIBasedAuth';
-import { DEFAULT_BASE_URL, formatAxiosError } from '../src/utils/helper';
+import { DEFAULT_BASE_URL } from '../src/utils/helper';
 const globals = require('../src/globals');
 
 jest.mock('../src/globals', () => ({
@@ -98,12 +98,12 @@ describe('with auth successfully created', () => {
 
   test('confirmPasswordlessAuth throws error on failed post', async () => {
     clientAxios.post = jest.fn((_path: string) => {
-      throw new Error('test error');
+      return Promise.reject('test error');
     });
     try {
       await auth.confirmPasswordlessAuth({ code });
     } catch (error) {
-      expect(error).toEqual(new AxiosError('test error'));
+      expect(error).toEqual('test error');
     }
 
     expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(2);
@@ -113,12 +113,12 @@ describe('with auth successfully created', () => {
     delete params.storage;
     auth = new APIBasedAuth(params);
     clientAxios.post = jest.fn((_path: string) => {
-      throw new Error('test error');
+      return Promise.reject('test error');
     });
     try {
       await auth.confirmPasswordlessAuth({ code });
     } catch (error) {
-      expect(error).toEqual(new AxiosError('test error'));
+      expect(error).toEqual('test error');
     }
 
     expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(0);
@@ -268,7 +268,7 @@ describe('with auth successfully created', () => {
 
   test('initiatePasswordlessAuth throws error on failed post', async () => {
     clientAxios.post = jest.fn((_path: string) => {
-      throw new Error('test error');
+      return Promise.reject('test error');
     });
     try {
       await auth.initiatePasswordlessAuth({
@@ -277,7 +277,7 @@ describe('with auth successfully created', () => {
         username: 'email'
       });
     } catch (error) {
-      expect(error).toEqual(new AxiosError('test error'));
+      expect(error).toEqual('test error');
     }
 
     expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(0);
@@ -336,7 +336,7 @@ describe('with auth successfully created', () => {
 
   test('initiatePasswordAuth throws error on failed post', async () => {
     clientAxios.post = jest.fn((_path: string) => {
-      throw new Error('test error');
+      return Promise.reject('test error');
     });
     try {
       await auth.initiatePasswordAuth({
@@ -344,7 +344,7 @@ describe('with auth successfully created', () => {
         username: 'email'
       });
     } catch (error) {
-      expect(error).toEqual(new AxiosError('test error'));
+      expect(error).toEqual('test error');
     }
 
     expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(0);
@@ -354,7 +354,7 @@ describe('with auth successfully created', () => {
     delete params.storage;
     auth = new APIBasedAuth(params);
     clientAxios.post = jest.fn((_path: string) => {
-      throw new Error('test error');
+      return Promise.reject('test error');
     });
     try {
       await auth.initiatePasswordAuth({
@@ -362,7 +362,7 @@ describe('with auth successfully created', () => {
         username: 'email'
       });
     } catch (error) {
-      expect(error).toEqual(new AxiosError('test error'));
+      expect(error).toEqual('test error');
     }
 
     expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(0);
@@ -399,33 +399,5 @@ describe('with auth successfully created', () => {
 
     await auth.logout();
     expect(globals.window.localStorage.removeItem).toHaveBeenCalledTimes(0);
-  });
-});
-
-describe('formatAxios', () => {
-  test('isAxiosError', () => {
-    isAxiosError.mockReturnValueOnce(true);
-    expect(() =>
-      formatAxiosError({
-        isAxiosError: true,
-        response: { data: 'some error' }
-      } as AxiosError)
-    ).toThrowError('some error');
-  });
-
-  test('isAxiosError response undefined', () => {
-    isAxiosError.mockReturnValueOnce(true);
-    expect(() =>
-      formatAxiosError({
-        isAxiosError: true
-      } as AxiosError)
-    ).toThrowError(new AxiosError('unknown axios error'));
-  });
-
-  test('not isAxiosError', () => {
-    isAxiosError.mockReturnValueOnce(false);
-    expect(() => formatAxiosError('some error')).toThrowError(
-      new AxiosError('some error')
-    );
   });
 });
