@@ -3,7 +3,22 @@ import { DEFAULT_BASE_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
 const SESSION_KEYS = ['session', 'username'];
-const TOKEN_KEYS = ['accessToken', 'idToken', 'refreshToken'];
+const TOKEN_KEYS = [
+  'accessToken',
+  'expiresIn',
+  'idToken',
+  'refreshToken',
+  'tokenType'
+];
+const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
+  accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
+  expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
+  idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
+  refreshToken: `${API_AUTH_STORAGE_KEY}.refreshToken`,
+  session: `${API_AUTH_STORAGE_KEY}.session`,
+  tokenType: `${API_AUTH_STORAGE_KEY}.tokenType`,
+  username: `${API_AUTH_STORAGE_KEY}.username`
+};
 
 /**
  * This class performs basic API based authentication based on our apps-auth repo
@@ -20,9 +35,11 @@ const TOKEN_KEYS = ['accessToken', 'idToken', 'refreshToken'];
  *   },
  *   storageKeys: {
  *     accessToken: 'custom_access_token_key',
+ *     expiresIn: 'custom_expires_in_key',
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
+ *     tokenType: 'custom_token_type_key',
  *     username: 'custom_username_key',
  *   },
  * });
@@ -46,12 +63,21 @@ const TOKEN_KEYS = ['accessToken', 'idToken', 'refreshToken'];
  *   },
  *   storageKeys: {
  *     accessToken: 'custom_access_token_key',
+ *     expiresIn: 'custom_expires_in_key',
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
+ *     tokenType: 'custom_token_type_key',
  *     username: 'custom_username_key',
  *   },
  * });
+ *
+ * If you do not want to store certain values, explicitly mark them as undefined.
+ * If nothing is passed in, all of the default keys will be used and values stored.
+ *   storageKeys = {
+ *     expiresIn: undefined,
+ *     tokenType: undefined,
+ *   };
  *
  * Reasoning for decisions made:
  * - Storage of session/token values are individual and not JSON.stringify'd together to
@@ -68,7 +94,7 @@ class APIBasedAuth {
     baseURL,
     clientId,
     storage,
-    storageKeys = {}
+    storageKeys
   }: APIBasedAuth.Config) {
     if (!clientId) {
       throw new Error('APIBasedAuth param clientId is required');
@@ -79,7 +105,7 @@ class APIBasedAuth {
     this.clientOptions = {
       clientId,
       storage,
-      storageKeys
+      storageKeys: { ...DEFAULT_STORAGE_KEYS, ...storageKeys }
     };
   }
 
@@ -160,9 +186,10 @@ class APIBasedAuth {
     const storedValues = {} as APIBasedAuth.Session;
     if (storage) {
       for (const key of SESSION_KEYS) {
-        storedValues[key] = await storage.getItem(
-          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
-        );
+        const storageKey = storageKeys[key];
+        if (storageKey) {
+          storedValues[key] = await storage.getItem(storageKey);
+        }
       }
 
       this.session = storedValues;
@@ -181,9 +208,10 @@ class APIBasedAuth {
     const { storage, storageKeys } = this.clientOptions;
     if (storage) {
       for (const key of type === 'session' ? SESSION_KEYS : TOKEN_KEYS) {
-        await storage.removeItem(
-          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`
-        );
+        const storageKey = storageKeys[key];
+        if (storageKey) {
+          await storage.removeItem(storageKey);
+        }
       }
     }
   }
@@ -200,10 +228,10 @@ class APIBasedAuth {
       for (const key of valuesToStore._type === 'session'
         ? SESSION_KEYS
         : TOKEN_KEYS) {
-        await storage.setItem(
-          storageKeys[key] || `${API_AUTH_STORAGE_KEY}.${key}`,
-          valuesToStore[key]
-        );
+        const storageKey = storageKeys[key];
+        if (storageKey) {
+          await storage.setItem(storageKey, valuesToStore[key]);
+        }
       }
     }
   }
@@ -252,15 +280,17 @@ declare namespace APIBasedAuth {
 
   type StorageKey = keyof Omit<Session, '_type'> | keyof Omit<Tokens, '_type'>;
 
-  export type StorageKeys = Partial<Record<StorageKey, string>>;
+  export type StorageKeys = Partial<Record<StorageKey, string | undefined>>;
 
   type StorageTypeName = 'session' | 'token';
 
   type Tokens = {
     _type: 'token';
     accessToken: string;
+    expiresIn: number;
     idToken: string;
     refreshToken: string;
+    tokenType: string;
   };
 
   export type VerifyPasswordlessAuthData = {

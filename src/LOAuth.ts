@@ -137,7 +137,7 @@ class LOAuth {
     LOAuth.setDomainCookieAuthState({
       access_token: this.token.accessToken,
       refresh_token: this.token.refreshToken,
-      expires: this.token.expires?.getTime(),
+      expires: this.token.expires.getTime(),
       clientId: this.clientOptions.clientId,
       cookieDomain
     });
@@ -155,9 +155,7 @@ class LOAuth {
       const cookie = document.cookie
         .split('; ')
         .find((cookie) =>
-          cookie.startsWith(
-            `${this.clientOptions.storageKey || AUTH_STORAGE_KEY}=`
-          )
+          cookie.startsWith(`${this.clientOptions.storageKey}=`)
         );
 
       const value = cookie && cookie.split('=')[1];
@@ -210,6 +208,7 @@ class LOAuth {
     storage.removeItem(storageKey);
   }
 
+  /* istanbul ignore next */
   private _isTokenExpiring(options: LOAuth.RefreshOptions = {}) {
     const refreshWindow =
       options.refreshWindow !== undefined
@@ -302,7 +301,7 @@ class LOAuth {
         if (this.clientOptions.loginRedirectUri) {
           const redirectUri = new URL(this.clientOptions.loginRedirectUri);
           redirectUri.searchParams.append('originalUrl', window.location.href);
-          
+
           window.location.href = redirectUri.toString();
         } else {
           window.location.href = this.client.code.getUri();
