@@ -208,8 +208,7 @@ class LOAuth {
     storage.removeItem(storageKey);
   }
 
-  /* istanbul ignore next */
-  private _isTokenExpiring(options: LOAuth.RefreshOptions = {}) {
+  private _isTokenExpiring(options: LOAuth.RefreshOptions) {
     const refreshWindow =
       options.refreshWindow !== undefined
         ? options.refreshWindow
