@@ -24,13 +24,17 @@ const code = '123';
 const DEFAULT_SESSION_KEY = `${API_AUTH_STORAGE_KEY}.session`;
 const DEFAULT_USERNAME_KEY = `${API_AUTH_STORAGE_KEY}.username`;
 const DEFAULT_ACCESS_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.accessToken`;
+const DEFAULT_EXPIRES_IN_KEY = `${API_AUTH_STORAGE_KEY}.expiresIn`;
 const DEFAULT_ID_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.idToken`;
 const DEFAULT_REFRESH_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.refreshToken`;
+const DEFAULT_TOKEN_TYPE_KEY = `${API_AUTH_STORAGE_KEY}.tokenType`;
 const mockSession = { session: 'session' };
 const mockToken = {
   accessToken: 'access_token',
+  expiresIn: 3600,
   idToken: 'id_token',
-  refreshToken: 'refresh_token'
+  refreshToken: 'refresh_token',
+  tokenType: 'Bearer'
 };
 const promiseWrapStorage = (storage: typeof globals.window.localStorage) => ({
   getItem: (key) => Promise.resolve(storage.getItem(key)),
@@ -38,7 +42,7 @@ const promiseWrapStorage = (storage: typeof globals.window.localStorage) => ({
   setItem: (key, value) => Promise.resolve(storage.setItem(key, value))
 });
 
-const clientAxios = { post: undefined };
+const clientAxios = { post: jest.fn() };
 
 beforeEach(() => {
   clientAxios.post = jest.fn((path: string, data: Record<string, string>) => {
@@ -66,7 +70,11 @@ beforeEach(() => {
   globals.window.localStorage.setItem.mockImplementation(() => {});
   params = {
     clientId: '7cbji8hkta84ons79j34qcfdci',
-    storage: promiseWrapStorage(globals.window.localStorage)
+    storage: promiseWrapStorage(globals.window.localStorage),
+    storageKeys: {
+      expiresIn: undefined,
+      tokenType: undefined
+    }
   };
 });
 
@@ -200,6 +208,29 @@ describe('with auth successfully created', () => {
     });
   });
 
+  test('confirmPasswordlessAuth without initiating nor params passed but with storageKeys removed', async () => {
+    auth = new APIBasedAuth({
+      ...params,
+      storageKeys: { session: undefined, username: undefined }
+    });
+    
+    try {
+      await auth.confirmPasswordlessAuth({
+        code
+      });
+    } catch (error) {
+      expect(error).toEqual('invalid credentials');
+      expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(0);
+      expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(0);
+  
+      expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
+        clientId: params.clientId,
+        code
+      });
+    }
+
+  });
+
   test('confirmPasswordlessAuth without initiating nor params passed but with stored values with custom StorageKeys', async () => {
     auth = new APIBasedAuth({
       ...params,
@@ -227,7 +258,32 @@ describe('with auth successfully created', () => {
       2,
       'custom_username'
     );
-    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(3);
+    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(5);
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      1,
+      DEFAULT_ACCESS_TOKEN_KEY,
+      mockToken.accessToken
+    );
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      2,
+      DEFAULT_EXPIRES_IN_KEY,
+      mockToken.expiresIn
+    );
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      3,
+      DEFAULT_ID_TOKEN_KEY,
+      mockToken.idToken
+    );
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      4,
+      DEFAULT_REFRESH_TOKEN_KEY,
+      mockToken.refreshToken
+    );
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      5,
+      DEFAULT_TOKEN_TYPE_KEY,
+      mockToken.tokenType
+    );
 
     expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
       clientId: params.clientId,
