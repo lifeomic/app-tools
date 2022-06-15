@@ -21,7 +21,7 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
 };
 
 /**
- * This class performs basic API based authentication based on our apps-auth repo
+ * This class exposes basic API based authentication helpers based on our apps-auth repo
  *
  * Example storage differences
  *
@@ -87,7 +87,7 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
 
 class APIBasedAuth {
   private client: AxiosInstance;
-  private clientOptions: APIBasedAuth.Config;
+  readonly clientOptions: APIBasedAuth.Config;
   private session?: APIBasedAuth.Session;
 
   constructor({
@@ -100,13 +100,14 @@ class APIBasedAuth {
       throw new Error('APIBasedAuth param clientId is required');
     }
 
-    this.client = axios.create({ baseURL: baseURL || DEFAULT_BASE_URL });
-
     this.clientOptions = {
+      baseURL: baseURL || DEFAULT_BASE_URL,
       clientId,
       storage,
       storageKeys: { ...DEFAULT_STORAGE_KEYS, ...storageKeys }
     };
+
+    this.client = axios.create({ baseURL: this.clientOptions.baseURL });
   }
 
   public async confirmPasswordlessAuth(
@@ -130,6 +131,14 @@ class APIBasedAuth {
       username: input.username
     });
     await this._store({ _type: 'token', ...data });
+    return data;
+  }
+
+  public async getLoginMethods(username: string) {
+    const { data } = await this.client.get<
+      APIBasedAuth.LoginMethod[],
+      AxiosResponse<APIBasedAuth.LoginMethod[]>
+    >('/login-methods', { params: { login: username } });
     return data;
   }
 
@@ -247,6 +256,13 @@ declare namespace APIBasedAuth {
     storage?: Storage;
     /* custom key names that can be used to store session/token values */
     storageKeys?: StorageKeys;
+  };
+
+  export type LoginMethod = {
+    type: 'OIDC';
+    account: string;
+    accountName: string;
+    accountLogo?: string;
   };
 
   export type PasswordlessAuthData = {
