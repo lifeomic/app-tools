@@ -10,13 +10,15 @@ const TOKEN_KEYS = [
   'refreshToken',
   'tokenType'
 ];
-const DEFAULT_STORAGE_KEYS = SESSION_KEYS.concat(TOKEN_KEYS).reduce(
-  (acc, cur) => {
-    acc[cur] = `${API_AUTH_STORAGE_KEY}.${cur}`;
-    return acc;
-  },
-  {} as APIBasedAuth.StorageKeys
-);
+const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
+  accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
+  expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
+  idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
+  refreshToken: `${API_AUTH_STORAGE_KEY}.refreshToken`,
+  session: `${API_AUTH_STORAGE_KEY}.session`,
+  tokenType: `${API_AUTH_STORAGE_KEY}.tokenType`,
+  username: `${API_AUTH_STORAGE_KEY}.username`
+};
 
 /**
  * This class exposes basic API based authentication helpers based on our apps-auth repo
@@ -85,8 +87,7 @@ const DEFAULT_STORAGE_KEYS = SESSION_KEYS.concat(TOKEN_KEYS).reduce(
 
 class APIBasedAuth {
   private client: AxiosInstance;
-  clientOptions: APIBasedAuth.Config;
-  private loginMethods?: Record<string, APIBasedAuth.LoginMethod[]>;
+  readonly clientOptions: APIBasedAuth.Config;
   private session?: APIBasedAuth.Session;
 
   constructor({
@@ -134,14 +135,10 @@ class APIBasedAuth {
   }
 
   public async getLoginMethods(username: string) {
-    if (this.loginMethods?.[username]) {
-      return this.loginMethods[username];
-    }
     const { data } = await this.client.get<
       APIBasedAuth.LoginMethod[],
       AxiosResponse<APIBasedAuth.LoginMethod[]>
     >('/login-methods', { params: { login: username } });
-    this.loginMethods = { [username]: data };
     return data;
   }
 

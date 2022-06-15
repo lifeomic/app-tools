@@ -31,13 +31,11 @@ const DEFAULT_TOKEN_TYPE_KEY = `${API_AUTH_STORAGE_KEY}.tokenType`;
 const mockLoginMethods = [
   {
     type: 'OIDC',
-    account: 'account-id-1',
-    accountName: 'account name 1'
+    account: 'account-id-1'
   },
   {
     type: 'OIDC',
-    account: 'account-id-2',
-    accountName: 'account name 2'
+    account: 'account-id-2'
   }
 ];
 const mockSession = { session: 'session' };
@@ -57,17 +55,19 @@ const promiseWrapStorage = (storage: typeof globals.window.localStorage) => ({
 const clientAxios = { get: jest.fn(), post: jest.fn() };
 
 beforeEach(() => {
-  clientAxios.get = jest.fn((path: string, data: { params: { login: string } } ) => {
-    if (path === '/login-methods') {
-      return Promise.resolve({
-        data: mockLoginMethods.map((method, index) => ({
-          ...method,
-          accountName: `${data.params.login} ${index}`
-        }))
-      });
+  clientAxios.get = jest.fn(
+    (path: string, data: { params: { login: string } }) => {
+      if (path === '/login-methods') {
+        return Promise.resolve({
+          data: mockLoginMethods.map((method, index) => ({
+            ...method,
+            accountName: `${data.params.login} ${index}`
+          }))
+        });
+      }
+      return Promise.reject('invalid path');
     }
-    return Promise.reject('invalid path');
-  });
+  );
   clientAxios.post = jest.fn((path: string, data: Record<string, string>) => {
     if (path === '/login') {
       if (!!data.clientId && !!data.password && !!data.username) {
@@ -347,7 +347,7 @@ describe('with auth successfully created', () => {
     expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(5);
   });
 
-  test('getLoginMethods calls API to get login methods and then when called again it uses the local cache stored when called with the same username but not when called with a different username', async () => {
+  test('getLoginMethods calls API to get login methods and refetches if called again', async () => {
     expect(clientAxios.get).toHaveBeenCalledTimes(0);
 
     const loginMethods = await auth.getLoginMethods('test_username');
@@ -361,19 +361,11 @@ describe('with auth successfully created', () => {
     expect(clientAxios.get).toHaveBeenCalledTimes(1);
 
     const loginMethods2 = await auth.getLoginMethods('test_username');
+
     expect(loginMethods2).toEqual(
       mockLoginMethods.map((method, index) => ({
         ...method,
         accountName: `test_username ${index}`
-      }))
-    );
-    expect(clientAxios.get).toHaveBeenCalledTimes(1);
-
-    const loginMethods3 = await auth.getLoginMethods('test_email');
-    expect(loginMethods3).toEqual(
-      mockLoginMethods.map((method, index) => ({
-        ...method,
-        accountName: `test_email ${index}`
       }))
     );
     expect(clientAxios.get).toHaveBeenCalledTimes(2);
