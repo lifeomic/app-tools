@@ -134,11 +134,16 @@ class APIBasedAuth {
     return data;
   }
 
-  public async getLoginMethods(username: string) {
+  /**
+   * Returns the login methods available for the requested username/email
+   * @param {string} login username or email to use to get available login methods
+   * @returns {APIBasedAuth.LoginMethod[]}
+   */
+  public async getLoginMethods(login: string) {
     const { data } = await this.client.get<
       APIBasedAuth.LoginMethod[],
       AxiosResponse<APIBasedAuth.LoginMethod[]>
-    >('/login-methods', { params: { login: username } });
+    >('/login-methods', { params: { login } });
     return data;
   }
 
