@@ -10,18 +10,16 @@ const TOKEN_KEYS = [
   'refreshToken',
   'tokenType'
 ];
-const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
-  accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
-  expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
-  idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
-  refreshToken: `${API_AUTH_STORAGE_KEY}.refreshToken`,
-  session: `${API_AUTH_STORAGE_KEY}.session`,
-  tokenType: `${API_AUTH_STORAGE_KEY}.tokenType`,
-  username: `${API_AUTH_STORAGE_KEY}.username`
-};
+const DEFAULT_STORAGE_KEYS = SESSION_KEYS.concat(TOKEN_KEYS).reduce(
+  (acc, cur) => {
+    acc[cur] = `${API_AUTH_STORAGE_KEY}.${cur}`;
+    return acc;
+  },
+  {} as APIBasedAuth.StorageKeys
+);
 
 /**
- * This class performs basic API based authentication based on our apps-auth repo
+ * This class exposes basic API based authentication helpers based on our apps-auth repo
  *
  * Example storage differences
  *
@@ -87,7 +85,8 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
 
 class APIBasedAuth {
   private client: AxiosInstance;
-  private clientOptions: APIBasedAuth.Config;
+  clientOptions: APIBasedAuth.Config;
+  private loginMethods?: Record<string, APIBasedAuth.LoginMethod[]>;
   private session?: APIBasedAuth.Session;
 
   constructor({
@@ -100,13 +99,14 @@ class APIBasedAuth {
       throw new Error('APIBasedAuth param clientId is required');
     }
 
-    this.client = axios.create({ baseURL: baseURL || DEFAULT_BASE_URL });
-
     this.clientOptions = {
+      baseURL: baseURL || DEFAULT_BASE_URL,
       clientId,
       storage,
       storageKeys: { ...DEFAULT_STORAGE_KEYS, ...storageKeys }
     };
+
+    this.client = axios.create({ baseURL: this.clientOptions.baseURL });
   }
 
   public async confirmPasswordlessAuth(
@@ -130,6 +130,18 @@ class APIBasedAuth {
       username: input.username
     });
     await this._store({ _type: 'token', ...data });
+    return data;
+  }
+
+  public async getLoginMethods(username: string) {
+    if (this.loginMethods?.[username]) {
+      return this.loginMethods[username];
+    }
+    const { data } = await this.client.get<
+      APIBasedAuth.LoginMethod[],
+      AxiosResponse<APIBasedAuth.LoginMethod[]>
+    >('/login-methods', { params: { login: username } });
+    this.loginMethods = { [username]: data };
     return data;
   }
 
@@ -247,6 +259,13 @@ declare namespace APIBasedAuth {
     storage?: Storage;
     /* custom key names that can be used to store session/token values */
     storageKeys?: StorageKeys;
+  };
+
+  export type LoginMethod = {
+    type: 'OIDC';
+    account: string;
+    accountName: string;
+    accountLogo?: string;
   };
 
   export type PasswordlessAuthData = {

@@ -28,6 +28,18 @@ const DEFAULT_EXPIRES_IN_KEY = `${API_AUTH_STORAGE_KEY}.expiresIn`;
 const DEFAULT_ID_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.idToken`;
 const DEFAULT_REFRESH_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.refreshToken`;
 const DEFAULT_TOKEN_TYPE_KEY = `${API_AUTH_STORAGE_KEY}.tokenType`;
+const mockLoginMethods = [
+  {
+    type: 'OIDC',
+    account: 'account-id-1',
+    accountName: 'account name 1'
+  },
+  {
+    type: 'OIDC',
+    account: 'account-id-2',
+    accountName: 'account name 2'
+  }
+];
 const mockSession = { session: 'session' };
 const mockToken = {
   accessToken: 'access_token',
@@ -42,9 +54,20 @@ const promiseWrapStorage = (storage: typeof globals.window.localStorage) => ({
   setItem: (key, value) => Promise.resolve(storage.setItem(key, value))
 });
 
-const clientAxios = { post: jest.fn() };
+const clientAxios = { get: jest.fn(), post: jest.fn() };
 
 beforeEach(() => {
+  clientAxios.get = jest.fn((path: string, data: { params: { login: string } } ) => {
+    if (path === '/login-methods') {
+      return Promise.resolve({
+        data: mockLoginMethods.map((method, index) => ({
+          ...method,
+          accountName: `${data.params.login} ${index}`
+        }))
+      });
+    }
+    return Promise.reject('invalid path');
+  });
   clientAxios.post = jest.fn((path: string, data: Record<string, string>) => {
     if (path === '/login') {
       if (!!data.clientId && !!data.password && !!data.username) {
@@ -213,7 +236,7 @@ describe('with auth successfully created', () => {
       ...params,
       storageKeys: { session: undefined, username: undefined }
     });
-    
+
     try {
       await auth.confirmPasswordlessAuth({
         code
@@ -222,13 +245,15 @@ describe('with auth successfully created', () => {
       expect(error).toEqual('invalid credentials');
       expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(0);
       expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(0);
-  
-      expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
-        clientId: params.clientId,
-        code
-      });
-    }
 
+      expect(clientAxios.post).toHaveBeenCalledWith(
+        '/passwordless-auth/verify',
+        {
+          clientId: params.clientId,
+          code
+        }
+      );
+    }
   });
 
   test('confirmPasswordlessAuth without initiating nor params passed but with stored values with custom StorageKeys', async () => {
@@ -320,6 +345,38 @@ describe('with auth successfully created', () => {
       username: 'email'
     });
     expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(5);
+  });
+
+  test('getLoginMethods calls API to get login methods and then when called again it uses the local cache stored when called with the same username but not when called with a different username', async () => {
+    expect(clientAxios.get).toHaveBeenCalledTimes(0);
+
+    const loginMethods = await auth.getLoginMethods('test_username');
+
+    expect(loginMethods).toEqual(
+      mockLoginMethods.map((method, index) => ({
+        ...method,
+        accountName: `test_username ${index}`
+      }))
+    );
+    expect(clientAxios.get).toHaveBeenCalledTimes(1);
+
+    const loginMethods2 = await auth.getLoginMethods('test_username');
+    expect(loginMethods2).toEqual(
+      mockLoginMethods.map((method, index) => ({
+        ...method,
+        accountName: `test_username ${index}`
+      }))
+    );
+    expect(clientAxios.get).toHaveBeenCalledTimes(1);
+
+    const loginMethods3 = await auth.getLoginMethods('test_email');
+    expect(loginMethods3).toEqual(
+      mockLoginMethods.map((method, index) => ({
+        ...method,
+        accountName: `test_email ${index}`
+      }))
+    );
+    expect(clientAxios.get).toHaveBeenCalledTimes(2);
   });
 
   test('initiatePasswordlessAuth throws error on failed post', async () => {
