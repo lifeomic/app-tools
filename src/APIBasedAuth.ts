@@ -283,8 +283,8 @@ declare namespace APIBasedAuth {
 
   type Session = {
     _type: 'session';
-    session: string;
-    username: string;
+    session: string | null;
+    username: string | null;
   };
 
   export type SignInData = {
@@ -294,7 +294,7 @@ declare namespace APIBasedAuth {
   };
 
   export type Storage = {
-    getItem(key: StorageKeys[StorageKey]): Promise<string>;
+    getItem(key: StorageKeys[StorageKey]): Promise<string | null>;
     removeItem(key: StorageKeys[StorageKey]): Promise<void>;
     setItem(key: StorageKeys[StorageKey], value: string): Promise<void>;
   };
@@ -307,11 +307,11 @@ declare namespace APIBasedAuth {
 
   type Tokens = {
     _type: 'token';
-    accessToken: string;
-    expiresIn: number;
-    idToken: string;
-    refreshToken: string;
-    tokenType: string;
+    accessToken: string | null;
+    expiresIn: number | null;
+    idToken: string | null;
+    refreshToken: string | null;
+    tokenType: string | null;
   };
 
   export type VerifyPasswordlessAuthData = {
