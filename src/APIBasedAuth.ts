@@ -2,14 +2,14 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { DEFAULT_BASE_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
-const SESSION_KEYS = ['session', 'username'];
+const SESSION_KEYS = ['session', 'username'] as const;
 const TOKEN_KEYS = [
   'accessToken',
   'expiresIn',
   'idToken',
   'refreshToken',
   'tokenType'
-];
+] as const;
 const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
   accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
   expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
@@ -202,7 +202,10 @@ class APIBasedAuth {
       for (const key of SESSION_KEYS) {
         const storageKey = storageKeys[key];
         if (storageKey) {
-          storedValues[key] = await storage.getItem(storageKey);
+          const item = await storage.getItem(storageKey);
+          if (item) {
+            storedValues[key] = item;
+          }
         }
       }
 
@@ -283,8 +286,8 @@ declare namespace APIBasedAuth {
 
   type Session = {
     _type: 'session';
-    session: string | null;
-    username: string | null;
+    session: string;
+    username: string;
   };
 
   export type SignInData = {
@@ -307,11 +310,11 @@ declare namespace APIBasedAuth {
 
   type Tokens = {
     _type: 'token';
-    accessToken: string | null;
-    expiresIn: number | null;
-    idToken: string | null;
-    refreshToken: string | null;
-    tokenType: string | null;
+    accessToken: string;
+    expiresIn: number;
+    idToken: string;
+    refreshToken: string;
+    tokenType: string;
   };
 
   export type VerifyPasswordlessAuthData = {
