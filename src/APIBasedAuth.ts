@@ -2,14 +2,14 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { DEFAULT_BASE_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
-const SESSION_KEYS = ['session', 'username'];
+const SESSION_KEYS = ['session', 'username'] as const;
 const TOKEN_KEYS = [
   'accessToken',
   'expiresIn',
   'idToken',
   'refreshToken',
   'tokenType'
-];
+] as const;
 const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
   accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
   expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
@@ -202,7 +202,10 @@ class APIBasedAuth {
       for (const key of SESSION_KEYS) {
         const storageKey = storageKeys[key];
         if (storageKey) {
-          storedValues[key] = await storage.getItem(storageKey);
+          const item = await storage.getItem(storageKey);
+          if (item) {
+            storedValues[key] = item;
+          }
         }
       }
 
@@ -294,7 +297,7 @@ declare namespace APIBasedAuth {
   };
 
   export type Storage = {
-    getItem(key: StorageKeys[StorageKey]): Promise<string>;
+    getItem(key: StorageKeys[StorageKey]): Promise<string | null>;
     removeItem(key: StorageKeys[StorageKey]): Promise<void>;
     setItem(key: StorageKeys[StorageKey], value: string): Promise<void>;
   };

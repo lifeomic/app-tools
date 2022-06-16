@@ -175,8 +175,8 @@ describe('with auth successfully created', () => {
     expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
       clientId: params.clientId,
       code,
-      session: null,
-      username: null
+      session: undefined,
+      username: undefined
     });
   });
 
