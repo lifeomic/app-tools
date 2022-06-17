@@ -9,7 +9,7 @@ const TOKEN_KEYS = [
   'idToken',
   'refreshToken'
 ] as const;
-const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
+const DEFAULT_STORAGE_KEYS: Required<APIBasedAuth.StorageKeys> = {
   accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
   expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
   idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
@@ -89,7 +89,7 @@ class APIBasedAuth {
    * A client for the LifeOmic API gateway.
    */
   private apiClient: AxiosInstance;
-  readonly clientOptions: APIBasedAuth.Config;
+  readonly clientOptions: APIBasedAuth.ClientOptions;
   private session?: APIBasedAuth.Session;
 
   constructor({
@@ -280,6 +280,8 @@ class APIBasedAuth {
 }
 
 declare namespace APIBasedAuth {
+  type ClientOptions = Required<Config>;
+
   export type Config = {
     /* LO clientId associated with API requests */
     clientId: string;
