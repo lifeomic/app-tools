@@ -27,7 +27,6 @@ const DEFAULT_ACCESS_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.accessToken`;
 const DEFAULT_EXPIRES_IN_KEY = `${API_AUTH_STORAGE_KEY}.expiresIn`;
 const DEFAULT_ID_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.idToken`;
 const DEFAULT_REFRESH_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.refreshToken`;
-const DEFAULT_TOKEN_TYPE_KEY = `${API_AUTH_STORAGE_KEY}.tokenType`;
 const mockLoginMethods = [
   {
     type: 'OIDC',
@@ -43,8 +42,7 @@ const mockToken = {
   accessToken: 'access_token',
   expiresIn: 3600,
   idToken: 'id_token',
-  refreshToken: 'refresh_token',
-  tokenType: 'Bearer'
+  refreshToken: 'refresh_token'
 };
 const promiseWrapStorage = (storage: typeof globals.window.localStorage) => ({
   getItem: (key) => Promise.resolve(storage.getItem(key)),
@@ -95,8 +93,7 @@ beforeEach(() => {
     clientId: '7cbji8hkta84ons79j34qcfdci',
     storage: promiseWrapStorage(globals.window.localStorage),
     storageKeys: {
-      expiresIn: undefined,
-      tokenType: undefined
+      expiresIn: undefined
     }
   };
 });
@@ -283,7 +280,7 @@ describe('with auth successfully created', () => {
       2,
       'custom_username'
     );
-    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(5);
+    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(4);
     expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
       1,
       DEFAULT_ACCESS_TOKEN_KEY,
@@ -303,11 +300,6 @@ describe('with auth successfully created', () => {
       4,
       DEFAULT_REFRESH_TOKEN_KEY,
       mockToken.refreshToken
-    );
-    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      5,
-      DEFAULT_TOKEN_TYPE_KEY,
-      mockToken.tokenType
     );
 
     expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
