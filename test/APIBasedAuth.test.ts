@@ -1,6 +1,9 @@
 import axios from 'axios';
 import APIBasedAuth, { API_AUTH_STORAGE_KEY } from '../src/APIBasedAuth';
-import { DEFAULT_BASE_URL } from '../src/utils/helper';
+import {
+  DEFAULT_BASE_API_URL,
+  DEFAULT_BASE_APPS_URL
+} from '../src/utils/helper';
 const globals = require('../src/globals');
 
 jest.mock('../src/globals', () => ({
@@ -107,14 +110,26 @@ describe('axios create initializations', () => {
   test('axios create called with DEFAULT_BASE_URL', () => {
     auth = new APIBasedAuth(params);
     expect(axios.create).toHaveBeenCalledWith({
-      baseURL: DEFAULT_BASE_URL
+      baseURL: DEFAULT_BASE_APPS_URL
+    });
+    expect(axios.create).toHaveBeenCalledWith({
+      baseURL: DEFAULT_BASE_API_URL
     });
   });
 
   test('axios create called with passed in baseURL', () => {
-    auth = new APIBasedAuth({ ...params, baseURL: 'http://localhost:3000' });
+    auth = new APIBasedAuth({
+      ...params,
+      baseURLs: {
+        apps: 'http://localhost:3000/apps',
+        api: 'http://localhost:3000/api'
+      }
+    });
     expect(axios.create).toHaveBeenCalledWith({
-      baseURL: 'http://localhost:3000'
+      baseURL: 'http://localhost:3000/apps'
+    });
+    expect(axios.create).toHaveBeenCalledWith({
+      baseURL: 'http://localhost:3000/api'
     });
   });
 });
@@ -496,5 +511,25 @@ describe('with auth successfully created', () => {
 
     await auth.logout();
     expect(globals.window.localStorage.removeItem).toHaveBeenCalledTimes(0);
+  });
+
+  test('redeemCustomAppCode calls the correct', async () => {
+    const mockResponse = {
+      accessToken: 'mock-access-token',
+      identityToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token',
+      expiresIn: 500
+    };
+    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
+
+    const result = await auth.redeemCustomAppCode('mock-code');
+
+    expect(result).toStrictEqual(mockResponse);
+
+    expect(clientAxios.post).toHaveBeenCalledTimes(1);
+    expect(clientAxios.post).toHaveBeenCalledWith('/client-tokens/redeem', {
+      clientId: params.clientId,
+      code: 'mock-code'
+    });
   });
 });

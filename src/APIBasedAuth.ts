@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { DEFAULT_BASE_URL } from './utils/helper';
+import { DEFAULT_BASE_API_URL, DEFAULT_BASE_APPS_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
 const SESSION_KEYS = ['session', 'username'] as const;
@@ -81,12 +81,19 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
  */
 
 class APIBasedAuth {
-  private client: AxiosInstance;
+  /**
+   * A client for the LifeOmic Apps gateway.
+   */
+  private appsClient: AxiosInstance;
+  /**
+   * A client for the LifeOmic API gateway.
+   */
+  private apiClient: AxiosInstance;
   readonly clientOptions: APIBasedAuth.Config;
   private session?: APIBasedAuth.Session;
 
   constructor({
-    baseURL,
+    baseURLs,
     clientId,
     storage,
     storageKeys
@@ -96,13 +103,20 @@ class APIBasedAuth {
     }
 
     this.clientOptions = {
-      baseURL: baseURL || DEFAULT_BASE_URL,
+      baseURLs: {
+        apps: DEFAULT_BASE_APPS_URL,
+        api: DEFAULT_BASE_API_URL,
+        ...baseURLs
+      },
       clientId,
       storage,
       storageKeys: { ...DEFAULT_STORAGE_KEYS, ...storageKeys }
     };
 
-    this.client = axios.create({ baseURL: this.clientOptions.baseURL });
+    this.appsClient = axios.create({
+      baseURL: this.clientOptions.baseURLs.apps
+    });
+    this.apiClient = axios.create({ baseURL: this.clientOptions.baseURLs.api });
   }
 
   public async confirmPasswordlessAuth(
@@ -115,7 +129,7 @@ class APIBasedAuth {
         ? await this._getFromStorage()
         : null)
     };
-    const { data } = await this.client.post<
+    const { data } = await this.appsClient.post<
       Omit<APIBasedAuth.Tokens, '_type'>,
       AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
       Required<APIBasedAuth.VerifyPasswordlessAuthData>
@@ -135,7 +149,7 @@ class APIBasedAuth {
    * @returns {APIBasedAuth.LoginMethod[]}
    */
   public async getLoginMethods(login: string) {
-    const { data } = await this.client.get<
+    const { data } = await this.appsClient.get<
       APIBasedAuth.LoginMethod[],
       AxiosResponse<APIBasedAuth.LoginMethod[]>
     >('/login-methods', { params: { login } });
@@ -145,7 +159,7 @@ class APIBasedAuth {
   public async initiatePasswordAuth(
     input: Omit<APIBasedAuth.SignInData, 'clientId'>
   ) {
-    const { data } = await this.client.post<
+    const { data } = await this.appsClient.post<
       Omit<APIBasedAuth.Tokens, '_type'>,
       AxiosResponse<Omit<APIBasedAuth.Tokens, '_type'>>,
       APIBasedAuth.SignInData
@@ -162,7 +176,7 @@ class APIBasedAuth {
     loginAppBasePath,
     username
   }: Omit<APIBasedAuth.PasswordlessAuthData, 'clientId'>) {
-    const { data } = await this.client.post<
+    const { data } = await this.appsClient.post<
       APIBasedAuth.PasswordlessAuthResponse,
       AxiosResponse<APIBasedAuth.PasswordlessAuthResponse>,
       APIBasedAuth.PasswordlessAuthData
@@ -173,6 +187,22 @@ class APIBasedAuth {
       username
     });
     await this._store({ _type: 'session', session: data.session, username });
+    return data;
+  }
+
+  public async redeemCustomAppCode(code: string) {
+    const { data } =
+      await this.apiClient.post<APIBasedAuth.RedeemCustomAppCodeResponse>(
+        '/client-tokens/redeem',
+        { clientId: this.clientOptions.clientId, code }
+      );
+    await this._store({
+      _type: 'token',
+      accessToken: data.accessToken,
+      idToken: data.identityToken,
+      refreshToken: data.refreshToken,
+      expiresIn: data.expiresIn
+    });
     return data;
   }
 
@@ -253,8 +283,11 @@ declare namespace APIBasedAuth {
   export type Config = {
     /* LO clientId associated with API requests */
     clientId: string;
-    /* base URL for the endpoint used to make API requests */
-    baseURL?: string;
+    /* base URLs for the endpoints used to make API requests */
+    baseURLs?: {
+      apps?: string;
+      api?: string;
+    };
     /* interface for storage that can persist session/token values */
     storage?: Storage;
     /* custom key names that can be used to store session/token values */
@@ -309,6 +342,13 @@ declare namespace APIBasedAuth {
     expiresIn: number;
     idToken: string;
     refreshToken: string;
+  };
+
+  export type RedeemCustomAppCodeResponse = {
+    accessToken: string;
+    refreshToken: string;
+    identityToken: string;
+    expiresIn: number;
   };
 
   export type VerifyPasswordlessAuthData = {
