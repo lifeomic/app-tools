@@ -292,9 +292,9 @@ declare namespace APIBasedAuth {
   };
 
   export type Storage = {
-    getItem(key: StorageKeys[StorageKey]): Promise<string | null>;
-    removeItem(key: StorageKeys[StorageKey]): Promise<void>;
-    setItem(key: StorageKeys[StorageKey], value: string): Promise<void>;
+    getItem(key: string): Promise<string | null>;
+    removeItem(key: string): Promise<void>;
+    setItem(key: string, value: string): Promise<void>;
   };
 
   type StorageKey = keyof Omit<Session, '_type'> | keyof Omit<Tokens, '_type'>;
