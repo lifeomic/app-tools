@@ -7,8 +7,7 @@ const TOKEN_KEYS = [
   'accessToken',
   'expiresIn',
   'idToken',
-  'refreshToken',
-  'tokenType'
+  'refreshToken'
 ] as const;
 const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
   accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
@@ -16,7 +15,6 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
   idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
   refreshToken: `${API_AUTH_STORAGE_KEY}.refreshToken`,
   session: `${API_AUTH_STORAGE_KEY}.session`,
-  tokenType: `${API_AUTH_STORAGE_KEY}.tokenType`,
   username: `${API_AUTH_STORAGE_KEY}.username`
 };
 
@@ -39,7 +37,6 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
- *     tokenType: 'custom_token_type_key',
  *     username: 'custom_username_key',
  *   },
  * });
@@ -67,7 +64,6 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
- *     tokenType: 'custom_token_type_key',
  *     username: 'custom_username_key',
  *   },
  * });
@@ -76,7 +72,6 @@ const DEFAULT_STORAGE_KEYS: APIBasedAuth.StorageKeys = {
  * If nothing is passed in, all of the default keys will be used and values stored.
  *   storageKeys = {
  *     expiresIn: undefined,
- *     tokenType: undefined,
  *   };
  *
  * Reasoning for decisions made:
@@ -314,7 +309,6 @@ declare namespace APIBasedAuth {
     expiresIn: number;
     idToken: string;
     refreshToken: string;
-    tokenType: string;
   };
 
   export type VerifyPasswordlessAuthData = {
