@@ -3,15 +3,9 @@ import { DEFAULT_BASE_API_URL, DEFAULT_BASE_APPS_URL } from './utils/helper';
 
 export const API_AUTH_STORAGE_KEY = 'lo-app-tools-api-auth';
 const SESSION_KEYS = ['session', 'username'] as const;
-const TOKEN_KEYS = [
-  'accessToken',
-  'expiresIn',
-  'idToken',
-  'refreshToken'
-] as const;
+const TOKEN_KEYS = ['accessToken', 'idToken', 'refreshToken'] as const;
 const DEFAULT_STORAGE_KEYS: Required<APIBasedAuth.StorageKeys> = {
   accessToken: `${API_AUTH_STORAGE_KEY}.accessToken`,
-  expiresIn: `${API_AUTH_STORAGE_KEY}.expiresIn`,
   idToken: `${API_AUTH_STORAGE_KEY}.idToken`,
   refreshToken: `${API_AUTH_STORAGE_KEY}.refreshToken`,
   session: `${API_AUTH_STORAGE_KEY}.session`,
@@ -33,7 +27,6 @@ const DEFAULT_STORAGE_KEYS: Required<APIBasedAuth.StorageKeys> = {
  *   },
  *   storageKeys: {
  *     accessToken: 'custom_access_token_key',
- *     expiresIn: 'custom_expires_in_key',
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
@@ -60,7 +53,6 @@ const DEFAULT_STORAGE_KEYS: Required<APIBasedAuth.StorageKeys> = {
  *   },
  *   storageKeys: {
  *     accessToken: 'custom_access_token_key',
- *     expiresIn: 'custom_expires_in_key',
  *     idToken: 'custom_identity_token_key',
  *     refreshToken: 'custom_refresh_token_key',
  *     session: 'custom_session_key',
@@ -200,8 +192,7 @@ class APIBasedAuth {
       _type: 'token',
       accessToken: data.accessToken,
       idToken: data.identityToken,
-      refreshToken: data.refreshToken,
-      expiresIn: data.expiresIn
+      refreshToken: data.refreshToken
     });
     return data;
   }
@@ -271,8 +262,9 @@ class APIBasedAuth {
         ? SESSION_KEYS
         : TOKEN_KEYS) {
         const storageKey = storageKeys[key];
-        if (storageKey) {
-          await storage.setItem(storageKey, valuesToStore[key]);
+        const storageValue = valuesToStore[key];
+        if (storageKey && typeof storageValue === 'string') {
+          await storage.setItem(storageKey, storageValue);
         }
       }
     }
@@ -341,7 +333,6 @@ declare namespace APIBasedAuth {
   type Tokens = {
     _type: 'token';
     accessToken: string;
-    expiresIn: number;
     idToken: string;
     refreshToken: string;
   };
@@ -350,7 +341,6 @@ declare namespace APIBasedAuth {
     accessToken: string;
     refreshToken: string;
     identityToken: string;
-    expiresIn: number;
   };
 
   export type VerifyPasswordlessAuthData = {

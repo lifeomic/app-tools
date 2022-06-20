@@ -27,7 +27,6 @@ const code = '123';
 const DEFAULT_SESSION_KEY = `${API_AUTH_STORAGE_KEY}.session`;
 const DEFAULT_USERNAME_KEY = `${API_AUTH_STORAGE_KEY}.username`;
 const DEFAULT_ACCESS_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.accessToken`;
-const DEFAULT_EXPIRES_IN_KEY = `${API_AUTH_STORAGE_KEY}.expiresIn`;
 const DEFAULT_ID_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.idToken`;
 const DEFAULT_REFRESH_TOKEN_KEY = `${API_AUTH_STORAGE_KEY}.refreshToken`;
 const mockLoginMethods = [
@@ -94,10 +93,7 @@ beforeEach(() => {
   globals.window.localStorage.setItem.mockImplementation(() => {});
   params = {
     clientId: '7cbji8hkta84ons79j34qcfdci',
-    storage: promiseWrapStorage(globals.window.localStorage),
-    storageKeys: {
-      expiresIn: undefined
-    }
+    storage: promiseWrapStorage(globals.window.localStorage)
   };
 });
 
@@ -295,7 +291,7 @@ describe('with auth successfully created', () => {
       2,
       'custom_username'
     );
-    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(4);
+    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(3);
     expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
       1,
       DEFAULT_ACCESS_TOKEN_KEY,
@@ -303,16 +299,11 @@ describe('with auth successfully created', () => {
     );
     expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
       2,
-      DEFAULT_EXPIRES_IN_KEY,
-      mockToken.expiresIn
-    );
-    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      3,
       DEFAULT_ID_TOKEN_KEY,
       mockToken.idToken
     );
     expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      4,
+      3,
       DEFAULT_REFRESH_TOKEN_KEY,
       mockToken.refreshToken
     );
@@ -376,6 +367,33 @@ describe('with auth successfully created', () => {
       }))
     );
     expect(clientAxios.get).toHaveBeenCalledTimes(2);
+  });
+
+  test('initPasswordlessAuth with session storageKey removed', async () => {
+    auth = new APIBasedAuth({
+      ...params,
+      storageKeys: { session: undefined }
+    });
+
+    await auth.initiatePasswordlessAuth({
+      appsBaseUri: 'api-base-uri',
+      loginAppBasePath: 'login-app-base-path',
+      username: 'email'
+    });
+
+    expect(globals.window.localStorage.getItem).toHaveBeenCalledTimes(0);
+    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+      1,
+      DEFAULT_USERNAME_KEY,
+      'email'
+    );
+    expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth', {
+      appsBaseUri: 'api-base-uri',
+      clientId: params.clientId,
+      loginAppBasePath: 'login-app-base-path',
+      username: 'email'
+    });
   });
 
   test('initiatePasswordlessAuth throws error on failed post', async () => {
@@ -501,6 +519,32 @@ describe('with auth successfully created', () => {
     );
     expect(globals.window.localStorage.removeItem).toHaveBeenNthCalledWith(
       5,
+      DEFAULT_REFRESH_TOKEN_KEY
+    );
+  });
+
+  test('logout does not crash calling removeItem with session storageKey removed', async () => {
+    auth = new APIBasedAuth({
+      ...params,
+      storageKeys: { session: undefined }
+    });
+
+    await auth.logout();
+    expect(globals.window.localStorage.removeItem).toHaveBeenCalledTimes(4);
+    expect(globals.window.localStorage.removeItem).toHaveBeenNthCalledWith(
+      1,
+      DEFAULT_USERNAME_KEY
+    );
+    expect(globals.window.localStorage.removeItem).toHaveBeenNthCalledWith(
+      2,
+      DEFAULT_ACCESS_TOKEN_KEY
+    );
+    expect(globals.window.localStorage.removeItem).toHaveBeenNthCalledWith(
+      3,
+      DEFAULT_ID_TOKEN_KEY
+    );
+    expect(globals.window.localStorage.removeItem).toHaveBeenNthCalledWith(
+      4,
       DEFAULT_REFRESH_TOKEN_KEY
     );
   });
