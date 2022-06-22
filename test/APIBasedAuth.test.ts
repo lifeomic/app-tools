@@ -42,7 +42,6 @@ const mockLoginMethods = [
 const mockSession = { session: 'session' };
 const mockToken = {
   accessToken: 'access_token',
-  expiresIn: 3600,
   idToken: 'id_token',
   refreshToken: 'refresh_token'
 };
@@ -561,8 +560,7 @@ describe('with auth successfully created', () => {
     const mockResponse = {
       accessToken: 'mock-access-token',
       identityToken: 'mock-access-token',
-      refreshToken: 'mock-refresh-token',
-      expiresIn: 500
+      refreshToken: 'mock-refresh-token'
     };
     jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
 
