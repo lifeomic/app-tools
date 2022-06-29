@@ -574,4 +574,76 @@ describe('with auth successfully created', () => {
       code: 'mock-code'
     });
   });
+
+  test('getAccessToken returns undefined with no storage set', async () => {
+    delete params.storage;
+    auth = new APIBasedAuth(params);
+
+    const initialize = () => {
+      let accessToken = '';
+
+      globals.window.localStorage.getItem.mockImplementation((key: string) => {
+        if (key === DEFAULT_ACCESS_TOKEN_KEY && accessToken) {
+          return accessToken;
+        }
+        return null;
+      });
+
+      globals.window.localStorage.setItem.mockImplementation(
+        (key: string, value: string) => {
+          if (key === DEFAULT_ACCESS_TOKEN_KEY) {
+            accessToken = value;
+          }
+        }
+      );
+    };
+    initialize();
+
+    const result = await auth.getAccessToken();
+
+    expect(result).toBeUndefined();
+
+    await auth.initiatePasswordAuth({
+      password: 'password',
+      username: 'email'
+    });
+
+    const newAccessToken = await auth.getAccessToken();
+
+    expect(newAccessToken).toBeUndefined();
+  });
+
+  test('getAccessToken returns with the correct value when set', async () => {
+    const initialize = () => {
+      let accessToken = '';
+
+      globals.window.localStorage.getItem.mockImplementation((key: string) => {
+        if (key === DEFAULT_ACCESS_TOKEN_KEY && accessToken) {
+          return accessToken;
+        }
+        return null;
+      });
+
+      globals.window.localStorage.setItem.mockImplementation(
+        (key: string, value: string) => {
+          if (key === DEFAULT_ACCESS_TOKEN_KEY) {
+            accessToken = value;
+          }
+        }
+      );
+    };
+    initialize();
+    const result = await auth.getAccessToken();
+
+    expect(result).toBeNull();
+
+    await auth.initiatePasswordAuth({
+      password: 'password',
+      username: 'email'
+    });
+
+    const newAccessToken = await auth.getAccessToken();
+
+    expect(newAccessToken).toBe(mockToken.accessToken);
+  });
 });

@@ -135,6 +135,15 @@ class APIBasedAuth {
     return data;
   }
 
+  public getAccessToken(): Promise<string | null | undefined> {
+    const { storage, storageKeys } = this.clientOptions;
+
+    const storageKey = storageKeys[TOKEN_KEYS[0]];
+    if (storage && storageKey) {
+      return storage.getItem(storageKey);
+    }
+  }
+
   /**
    * Returns the login methods available for the requested username/email
    * @param {string} login username or email to use to get available login methods
