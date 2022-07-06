@@ -291,21 +291,7 @@ describe('with auth successfully created', () => {
       'custom_username'
     );
     expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(3);
-    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      1,
-      DEFAULT_ACCESS_TOKEN_KEY,
-      mockToken.accessToken
-    );
-    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      2,
-      DEFAULT_ID_TOKEN_KEY,
-      mockToken.idToken
-    );
-    expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
-      3,
-      DEFAULT_REFRESH_TOKEN_KEY,
-      mockToken.refreshToken
-    );
+    assertTokenStorage();
 
     expect(clientAxios.post).toHaveBeenCalledWith('/passwordless-auth/verify', {
       clientId: params.clientId,
@@ -646,4 +632,29 @@ describe('with auth successfully created', () => {
 
     expect(newAccessToken).toBe(mockToken.accessToken);
   });
+
+  test('setTokens sets tokens into storage', async () => {
+    auth.clientOptions.storage.getItem('');
+    await auth.setTokens(mockToken);
+    expect(globals.window.localStorage.setItem).toHaveBeenCalledTimes(3);
+    assertTokenStorage();
+  });
 });
+
+const assertTokenStorage = () => {
+  expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+    1,
+    DEFAULT_ACCESS_TOKEN_KEY,
+    mockToken.accessToken
+  );
+  expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+    2,
+    DEFAULT_ID_TOKEN_KEY,
+    mockToken.idToken
+  );
+  expect(globals.window.localStorage.setItem).toHaveBeenNthCalledWith(
+    3,
+    DEFAULT_REFRESH_TOKEN_KEY,
+    mockToken.refreshToken
+  );
+};

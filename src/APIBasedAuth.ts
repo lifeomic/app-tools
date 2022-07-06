@@ -206,6 +206,20 @@ class APIBasedAuth {
     return data;
   }
 
+  /**
+   * Sets credentials into the store. This shouldn't typically be
+   * needed to be used directly as app-tools will handle it any time
+   * auth is handled through one of its supported auth methods.
+   * However, in the case that credentials are received some other
+   * way this can be used to store them.
+   */
+  public async setTokens(tokens: Omit<APIBasedAuth.Tokens, '_type'>) {
+    await this._store({
+      _type: 'token',
+      ...tokens
+    });
+  }
+
   public async logout() {
     await Promise.all([
       this._removeFromStorage('session'),
