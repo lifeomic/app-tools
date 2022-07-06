@@ -131,7 +131,7 @@ class APIBasedAuth {
       session: input.session,
       username: input.username
     });
-    await this._store({ _type: 'token', ...data });
+    await this.setTokens(data);
     return data;
   }
 
@@ -168,7 +168,7 @@ class APIBasedAuth {
       clientId: this.clientOptions.clientId,
       ...input
     });
-    await this._store({ _type: 'token', ...data });
+    await this.setTokens(data);
     return data;
   }
 
@@ -197,11 +197,9 @@ class APIBasedAuth {
         '/client-tokens/redeem',
         { clientId: this.clientOptions.clientId, code }
       );
-    await this._store({
-      _type: 'token',
-      accessToken: data.accessToken,
+    await this.setTokens({
       idToken: data.identityToken,
-      refreshToken: data.refreshToken
+      ...data
     });
     return data;
   }
