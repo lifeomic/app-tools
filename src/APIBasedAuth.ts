@@ -199,7 +199,8 @@ class APIBasedAuth {
       );
     await this.setTokens({
       idToken: data.identityToken,
-      ...data
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken
     });
     return data;
   }
