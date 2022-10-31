@@ -11,7 +11,7 @@ Provides a set of utilities for developing custom web apps against the LifeOmic 
 yarn install @lifeomic/app-tools
 ```
 
-## Auth
+## Using "Hosted" Authentication
 
 ```javascript
 import { LOAuth } from '@lifeomic/app-tools';
@@ -19,8 +19,10 @@ import { LOAuth } from '@lifeomic/app-tools';
 // Setup
 const appAuth = new LOAuth({
   clientId: '<clientId>',
-  authorizationUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/authorize',
-  accessTokenUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/token',
+  authorizationUri:
+    'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/authorize',
+  accessTokenUri:
+    'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/oauth2/token',
   redirectUri: 'http://localhost:3000/callback',
   logoutUri: 'https://lifeomic-prod-us.auth.us-east-2.amazoncognito.com/logout',
   logoutRedirectUri: 'http://localhost:3000/logout',
@@ -61,7 +63,7 @@ const appAuth = new LOAuth({
       return sessionStorage.setItem(key, value);
     },
     removeItem(key: string) {
-      return sessionStorage.removeItem(key)
+      return sessionStorage.removeItem(key);
     }
   }
 });
@@ -70,7 +72,7 @@ const appAuth = new LOAuth({
 const appAuth = new LOAuth({
   ...oauthConfig,
   storageKey: 'my-super-awesome-key',
-  storage: sessionStorage,
+  storage: sessionStorage
 });
 ```
 
@@ -88,4 +90,45 @@ const appAuth = new LOAuth({
     removeItem: noop
   }
 });
+```
+
+## Using API-based Authentication
+
+```ts
+import { APIBasedAuth } from '@lifeomic/app-tools';
+
+// Setup
+const auth = new APIBasedAuth({
+  clientId: '<clientId>',
+  storage: {
+    // Provide a mechanism for storing + retrieving tokens.
+  }
+});
+```
+
+### Passwordless Login
+
+```ts
+// Initiate login
+await auth.initiatePasswordlessAuth({
+  username: '<username-or-email>'
+  appsBaseUri: 'use-bogus-value',
+  loginAppBasePath: 'use-bogus-value',
+});
+
+// Confirm login using code
+const res = await auth.confirmPasswordlessLogin({
+  username: '<username-or-email>',
+  code: '<code>'
+})
+
+res.accessToken;
+```
+
+### Perform Custom App Token Exchange
+
+```ts
+const res = await auth.redeemCustomAppCode('<code>');
+
+res.accessToken;
 ```
