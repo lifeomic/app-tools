@@ -342,6 +342,12 @@ describe('with auth successfully created', () => {
       }))
     );
     expect(clientAxios.get).toHaveBeenCalledTimes(1);
+    expect(clientAxios.get).toHaveBeenNthCalledWith(1, '/login-methods', {
+      params: {
+        login: 'test_username',
+        clientId: auth.clientOptions.clientId
+      }
+    });
 
     const loginMethods2 = await auth.getLoginMethods('test_username');
 
@@ -352,6 +358,12 @@ describe('with auth successfully created', () => {
       }))
     );
     expect(clientAxios.get).toHaveBeenCalledTimes(2);
+    expect(clientAxios.get).toHaveBeenNthCalledWith(2, '/login-methods', {
+      params: {
+        login: 'test_username',
+        clientId: auth.clientOptions.clientId
+      }
+    });
   });
 
   test('initPasswordlessAuth with session storageKey removed', async () => {
