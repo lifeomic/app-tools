@@ -153,7 +153,9 @@ class APIBasedAuth {
     const { data } = await this.appsClient.get<
       APIBasedAuth.LoginMethod[],
       AxiosResponse<APIBasedAuth.LoginMethod[]>
-    >('/login-methods', { params: { login } });
+    >('/login-methods', {
+      params: { login, clientId: this.clientOptions.clientId }
+    });
     return data;
   }
 
