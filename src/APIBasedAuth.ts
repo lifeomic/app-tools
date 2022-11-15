@@ -418,7 +418,8 @@ declare namespace APIBasedAuth {
      */
     password?: string;
     /**
-     * A phone number for the user
+     * An eleven digit phone number for the user
+     * @example '+12223334444'
      */
     phone?: string;
     givenName?: string;
