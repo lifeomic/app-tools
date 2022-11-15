@@ -208,6 +208,26 @@ class APIBasedAuth {
   }
 
   /**
+   * Register a new user. Before the user is enabled, the user will
+   * need to be verified through completing the process through the
+   * `confirm` method which will also verify the user has access to
+   * the email that was used to signup with.
+   */
+  public async initiateSignup(
+    input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'>
+  ) {
+    const { data } = await this.apiClient.post<
+      APIBasedAuth.InitiateSignupResponse,
+      AxiosResponse<APIBasedAuth.InitiateSignupResponse>,
+      APIBasedAuth.InitiateSignupData
+    >('/signup', {
+      clientId: this.clientOptions.clientId,
+      ...input
+    });
+    return data;
+  }
+
+  /**
    * Sets credentials into the store. This shouldn't typically be
    * needed to be used directly as app-tools will handle it any time
    * auth is handled through one of its supported auth methods.
@@ -372,6 +392,37 @@ declare namespace APIBasedAuth {
     code: string;
     session?: string;
     username?: string;
+  };
+
+  export type InitiateSignupResponse = {
+    userConfirmed: boolean;
+  };
+
+  export type InitiateSignupData = {
+    clientId: string;
+    /** Unique username for the user. A required field */
+    username: string;
+    /** Unique email address for the user. A required field */
+    email: string;
+    /**
+     * Web url where the user registration takes place.
+     * @example 'https://example.com'
+     */
+    originalUrl?: string;
+    /**
+     * Password for the user. In the case that a password is not
+     * provided it is assumed that this is a passwordless user and
+     * a password is auto generated for them on the server. The
+     * user is still able to go through the forgot password flow
+     * to set it at a later time
+     */
+    password?: string;
+    /**
+     * A phone number for the user
+     */
+    phone?: string;
+    givenName?: string;
+    familyName?: string;
   };
 }
 

@@ -573,6 +573,33 @@ describe('with auth successfully created', () => {
     });
   });
 
+  test('initiateSignup makes expected request', async () => {
+    const mockResponse: APIBasedAuth.InitiateSignupResponse = {
+      userConfirmed: false
+    };
+    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
+
+    const input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'> = {
+      email: 'test.user@test.com',
+      phone: undefined,
+      username: 'test.user',
+      password: 'test-password',
+      familyName: 'test',
+      givenName: 'user',
+      originalUrl: 'https://test.com'
+    };
+
+    const result = await auth.initiateSignup(input);
+
+    expect(result).toStrictEqual(mockResponse);
+
+    expect(clientAxios.post).toHaveBeenCalledTimes(1);
+    expect(clientAxios.post).toHaveBeenCalledWith('/signup', {
+      clientId: params.clientId,
+      ...input
+    });
+  });
+
   test('getAccessToken returns undefined with no storage set', async () => {
     delete params.storage;
     auth = new APIBasedAuth(params);
