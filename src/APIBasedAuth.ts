@@ -228,6 +228,25 @@ class APIBasedAuth {
   }
 
   /**
+   * Confirms and completes a new user's signup. This requires
+   * a confirmation code to prove that the user has access to the
+   * provided email address
+   */
+  public async confirmSignup(
+    input: Omit<APIBasedAuth.ConfirmSignupData, 'clientId'>
+  ) {
+    const { data } = await this.apiClient.post<
+      APIBasedAuth.ConfirmSignupResponse,
+      AxiosResponse<APIBasedAuth.ConfirmSignupResponse>,
+      APIBasedAuth.ConfirmSignupData
+    >('/confirm', {
+      clientId: this.clientOptions.clientId,
+      ...input
+    });
+    return data;
+  }
+
+  /**
    * Sets credentials into the store. This shouldn't typically be
    * needed to be used directly as app-tools will handle it any time
    * auth is handled through one of its supported auth methods.
@@ -423,6 +442,23 @@ declare namespace APIBasedAuth {
     phone?: string;
     givenName?: string;
     familyName?: string;
+  };
+
+  export type ConfirmSignupResponse = {
+    accessToken: string;
+    refreshToken: string;
+    idToken: string;
+  };
+
+  export type ConfirmSignupData = {
+    clientId: string;
+    /** Username or email of the user being confirmed */
+    username: string;
+    /**
+     * The code that should have been made available to the user
+     * through the email sent to the provided email address
+     */
+    code: string;
   };
 }
 

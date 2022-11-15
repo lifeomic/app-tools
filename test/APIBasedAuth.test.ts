@@ -600,6 +600,30 @@ describe('with auth successfully created', () => {
     });
   });
 
+  test('confirmSignup makes expected request', async () => {
+    const mockResponse: APIBasedAuth.ConfirmSignupResponse = {
+      accessToken: 'mock-access-token',
+      idToken: 'mock-access-token',
+      refreshToken: 'mock-refresh-token'
+    };
+    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
+
+    const input: Omit<APIBasedAuth.ConfirmSignupData, 'clientId'> = {
+      username: 'test.user',
+      code
+    };
+
+    const result = await auth.confirmSignup(input);
+
+    expect(result).toStrictEqual(mockResponse);
+
+    expect(clientAxios.post).toHaveBeenCalledTimes(1);
+    expect(clientAxios.post).toHaveBeenCalledWith('/confirm', {
+      clientId: params.clientId,
+      ...input
+    });
+  });
+
   test('getAccessToken returns undefined with no storage set', async () => {
     delete params.storage;
     auth = new APIBasedAuth(params);
