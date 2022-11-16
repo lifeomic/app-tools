@@ -607,6 +607,7 @@ describe('with auth successfully created', () => {
       refreshToken: 'mock-refresh-token'
     };
     jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
+    const setTokensSpy = jest.spyOn(auth, 'setTokens');
 
     const input: Omit<APIBasedAuth.ConfirmSignupData, 'clientId'> = {
       username: 'test.user',
@@ -622,6 +623,8 @@ describe('with auth successfully created', () => {
       clientId: params.clientId,
       ...input
     });
+    expect(setTokensSpy).toHaveBeenCalledTimes(1);
+    expect(setTokensSpy).toHaveBeenLastCalledWith(mockResponse);
   });
 
   test('getAccessToken returns undefined with no storage set', async () => {

@@ -243,6 +243,7 @@ class APIBasedAuth {
       clientId: this.clientOptions.clientId,
       ...input
     });
+    await this.setTokens(data);
     return data;
   }
 
