@@ -438,7 +438,9 @@ declare namespace APIBasedAuth {
      */
     password?: string;
     /**
-     * A phone number for the user
+     * A phone number format in E.164 structure for the user
+     * https://en.wikipedia.org/wiki/E.164
+     * @example '+12223334444'
      */
     phone?: string;
     givenName?: string;
