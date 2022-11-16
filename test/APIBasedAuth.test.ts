@@ -581,8 +581,8 @@ describe('with auth successfully created', () => {
 
     const input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'> = {
       email: 'test.user@test.com',
-      phone: undefined,
-      username: 'test.user',
+      phone: '+12223334444',
+      username: undefined,
       password: 'test-password',
       familyName: 'test',
       givenName: 'user',
