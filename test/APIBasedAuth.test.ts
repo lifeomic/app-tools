@@ -574,11 +574,6 @@ describe('with auth successfully created', () => {
   });
 
   test('initiateSignup makes expected request (while providing username)', async () => {
-    const mockResponse: APIBasedAuth.InitiateSignupResponse = {
-      userConfirmed: false
-    };
-    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
-
     const input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'> = {
       email: 'test.user@test.com',
       phone: '+12223334444',
@@ -588,6 +583,11 @@ describe('with auth successfully created', () => {
       givenName: 'user',
       originalUrl: 'https://test.com'
     };
+    const mockResponse: APIBasedAuth.InitiateSignupResponse = {
+      username: input.username || '',
+      email: input.email
+    };
+    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
 
     const result = await auth.initiateSignup(input);
 
@@ -601,11 +601,6 @@ describe('with auth successfully created', () => {
   });
 
   test('initiateSignup makes expected request (without providing username)', async () => {
-    const mockResponse: APIBasedAuth.InitiateSignupResponse = {
-      userConfirmed: false
-    };
-    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
-
     const input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'> = {
       email: 'test.user@test.com',
       phone: '+12223334444',
@@ -615,6 +610,11 @@ describe('with auth successfully created', () => {
       givenName: 'user',
       originalUrl: 'https://test.com'
     };
+    const mockResponse: APIBasedAuth.InitiateSignupResponse = {
+      username: 'generated-username',
+      email: input.email
+    };
+    jest.spyOn(clientAxios, 'post').mockResolvedValue({ data: mockResponse });
 
     const result = await auth.initiateSignup(input);
 
