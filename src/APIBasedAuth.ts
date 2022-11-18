@@ -420,10 +420,14 @@ declare namespace APIBasedAuth {
 
   export type InitiateSignupData = {
     clientId: string;
-    /** Unique username for the user. A required field */
-    username: string;
     /** Unique email address for the user. A required field */
     email: string;
+    /**
+     * Unique username for the user. In the case that a username
+     * is not provided, the server will attempt to generate a
+     * unique string based on the provided email address.
+     */
+    username?: string;
     /**
      * Web url where the user registration takes place.
      * @example 'https://example.com'
