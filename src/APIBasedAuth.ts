@@ -415,7 +415,8 @@ declare namespace APIBasedAuth {
   };
 
   export type InitiateSignupResponse = {
-    userConfirmed: boolean;
+    username: string;
+    email: string;
   };
 
   export type InitiateSignupData = {
