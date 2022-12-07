@@ -216,7 +216,7 @@ class APIBasedAuth {
   public async initiateSignup(
     input: Omit<APIBasedAuth.InitiateSignupData, 'clientId'>
   ) {
-    const { data } = await this.apiClient.post<
+    const { data } = await this.appsClient.post<
       APIBasedAuth.InitiateSignupResponse,
       AxiosResponse<APIBasedAuth.InitiateSignupResponse>,
       APIBasedAuth.InitiateSignupData
@@ -235,7 +235,7 @@ class APIBasedAuth {
   public async confirmSignup(
     input: Omit<APIBasedAuth.ConfirmSignupData, 'clientId'>
   ) {
-    const { data } = await this.apiClient.post<
+    const { data } = await this.appsClient.post<
       APIBasedAuth.ConfirmSignupResponse,
       AxiosResponse<APIBasedAuth.ConfirmSignupResponse>,
       APIBasedAuth.ConfirmSignupData
