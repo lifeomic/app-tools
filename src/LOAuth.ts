@@ -118,7 +118,7 @@ class LOAuth {
    * refreshAuthToken, which will find and import the cookie as a token
    */
   public static setDomainCookieAuthState(token: LOAuth.CookieTokenData) {
-    document.cookie = `lo-app-tools-auth=${JSON.stringify({
+    document.cookie = `${AUTH_STORAGE_KEY}=${JSON.stringify({
       access_token: token.access_token,
       refresh_token: token.refresh_token,
       expires: token.expires,
