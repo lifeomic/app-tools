@@ -22,7 +22,7 @@
     "url": "https://github.com/lifeomic/app-tools/issues"
   },
   "dependencies": {
-    "axios": "^0.27.2",
+    "axios": "^0.28.0",
     "client-oauth2": "https://github.com/Druotic/js-client-oauth2.git#remove-redirect-pathname-match-check",
     "query-string": "^6.2.0"
   },
@@ -35,8 +35,8 @@
     "ts-jest": "^23.10.5",
     "tslint": "^5.12.0",
     "tslint-config-prettier": "^1.17.0",
-    "tslint-config-semistandard": "^7.0.0",
-    "typescript": "^3.7.5"
+    "tslint-config-semistandard": "^8.0.1",
+    "typescript": "^4.9.5"
   },
   "publishConfig": {
     "access": "public"
